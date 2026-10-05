@@ -21,20 +21,14 @@ import {
   guestPolicy,
   seatsTaken,
   type Lunch,
-  type LunchRole,
   type Membership,
   type Signup,
-  type Wine,
-  type LunchWine,
 } from "@/lib/types";
-import {
-  critiqueRoleDuty,
-  critiqueRoleLabel,
-} from "@/lib/lunch-roles";
 import {
   findNextOpenLunch,
   resolveSignupPhase,
   signupWindowCopy,
+  toDatetimeLocalValue,
 } from "@/lib/signup-phases";
 import {
   releaseLunchAction,
@@ -47,7 +41,6 @@ import {
   committeeRemoveSignupAction,
   markAttendanceAction,
 } from "@/app/actions/lunches";
-import { addLunchWineAction, removeLunchWineAction } from "@/app/actions/wine";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -68,9 +61,7 @@ import { ErrorBanner } from "@/components/error-banner";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { SeatMeter } from "@/components/seat-meter";
 import { CopyButton } from "@/components/copy-button";
-import { CritiqueRoleBadge } from "@/components/critique-role-badge";
 import { SignupCard } from "./signup-card";
-import { CritiqueRolesPanel } from "./critique-roles-panel";
 
 type SignupRow = Signup & {
   memberships: Pick<
@@ -102,24 +93,19 @@ export default async function LunchDetailPage({
     venues: { id: string; name: string; address: string | null } | null;
   };
 
-  const [{ data: signupData }, { data: roleData }] = await Promise.all([
-    supabase
-      .from("signups")
-      .select("*, memberships(id, full_name, email, dietary_notes)")
-      .eq("lunch_id", id)
-      .order("created_at"),
-    supabase.from("lunch_roles").select("*").eq("lunch_id", id),
-  ]);
+  const { data: signupData } = await supabase
+    .from("signups")
+    .select("*, memberships(id, full_name, email, dietary_notes)")
+    .eq("lunch_id", id)
+    .order("created_at");
   const signups = (signupData ?? []) as SignupRow[];
-  const roles = (roleData ?? []) as LunchRole[];
-  const roleByMembership = new Map(roles.map((r) => [r.membership_id, r.role]));
 
   const confirmed = signups.filter((s) => s.status === "confirmed");
   const waitlisted = signups.filter((s) => s.status === "waitlisted");
   const taken = seatsTaken(signups);
   const seatsLeft = Math.max(0, lunch.capacity - taken);
   const overCapacity = taken > lunch.capacity;
-  const policy = guestPolicy(ctx.club, lunch);
+  const policy = guestPolicy(lunch);
   const now = new Date();
   const phase = resolveSignupPhase(lunch, now);
   const cutoffPassed = phase === "closed";
@@ -144,34 +130,17 @@ export default async function LunchDetailPage({
     signups.find(
       (s) => s.membership_id === ctx.membership.id && s.status !== "cancelled"
     ) ?? null;
-  const myRole = roleByMembership.get(ctx.membership.id) ?? null;
 
   // Committee extras
   let roster: Pick<Membership, "id" | "full_name" | "email">[] = [];
-  let wines: Wine[] = [];
-  let lunchWines: (LunchWine & { wines: Wine | null })[] = [];
   if (ctx.isCommittee) {
-    const [{ data: r }, { data: w }, { data: lw }] = await Promise.all([
-      supabase
-        .from("memberships")
-        .select("id, full_name, email")
-        .eq("club_id", ctx.club.id)
-        .eq("status", "active")
-        .order("full_name"),
-      supabase
-        .from("wines")
-        .select("*")
-        .eq("club_id", ctx.club.id)
-        .order("name"),
-      supabase
-        .from("lunch_wines")
-        .select("*, wines(*)")
-        .eq("lunch_id", id)
-        .order("created_at"),
-    ]);
+    const { data: r } = await supabase
+      .from("memberships")
+      .select("id, full_name, email")
+      .eq("club_id", ctx.club.id)
+      .eq("status", "active")
+      .order("full_name");
     roster = (r ?? []) as Pick<Membership, "id" | "full_name" | "email">[];
-    wines = (w ?? []) as Wine[];
-    lunchWines = (lw ?? []) as (LunchWine & { wines: Wine | null })[];
   }
   const signedUpIds = new Set(
     signups.filter((s) => s.status !== "cancelled").map((s) => s.membership_id)
@@ -285,18 +254,6 @@ export default async function LunchDetailPage({
         ) : null}
       </div>
 
-      {myRole ? (
-        <Card className="club-notice gap-2 p-5">
-          <p className="club-kicker">Your speaking role</p>
-          <h2 className="text-h2 text-foreground">
-            You are {critiqueRoleLabel(myRole)}
-          </h2>
-          <p className="max-w-prose text-sm text-muted-foreground">
-            {critiqueRoleDuty(myRole)}
-          </p>
-        </Card>
-      ) : null}
-
       {/* Member sign-up */}
       {lunch.status === "released" ? (
         <SignupCard
@@ -304,6 +261,11 @@ export default async function LunchDetailPage({
           lunchId={lunch.id}
           guestsAllowed={policy.allowed}
           maxGuests={policy.maxPerMember}
+          guestsOpenAt={
+            lunch.guests_open_at
+              ? fmtDateTime(lunch.guests_open_at, ctx.club.timezone)
+              : null
+          }
           seatsLeft={seatsLeft}
           cutoffPassed={cutoffPassed}
           phase={phase}
@@ -363,15 +325,8 @@ export default async function LunchDetailPage({
                           <p className="truncate text-sm font-medium">
                             {s.memberships?.full_name ?? "Unknown"}
                           </p>
-                          {s.guest_count > 0 ||
-                          s.added_by_committee ||
-                          roleByMembership.has(s.membership_id) ? (
+                          {s.guest_count > 0 || s.added_by_committee ? (
                             <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                              {roleByMembership.has(s.membership_id) ? (
-                                <CritiqueRoleBadge
-                                  role={roleByMembership.get(s.membership_id)!}
-                                />
-                              ) : null}
                               {s.guest_count > 0 ? (
                                 <Badge variant="secondary" className="h-4">
                                   +{s.guest_count} guest
@@ -514,31 +469,6 @@ export default async function LunchDetailPage({
         </section>
       ) : null}
 
-      {lunch.status !== "cancelled" ? (
-        <CritiqueRolesPanel
-          slug={slug}
-          lunchId={lunch.id}
-          roles={roles}
-          attendees={confirmed.flatMap((s) =>
-            s.memberships
-              ? [
-                  {
-                    id: s.memberships.id,
-                    full_name: s.memberships.full_name,
-                    email: s.memberships.email,
-                  },
-                ]
-              : []
-          )}
-          canAssign={
-            ctx.isCommittee &&
-            (lunch.status === "draft" ||
-              lunch.status === "released" ||
-              lunch.status === "completed")
-          }
-        />
-      ) : null}
-
       {/* Committee control room */}
       {ctx.isCommittee ? (
         <section className="space-y-6">
@@ -654,13 +584,10 @@ export default async function LunchDetailPage({
                       id="cutoffAt"
                       name="cutoffAt"
                       type="datetime-local"
-                      defaultValue={
-                        lunch.signup_cutoff_at
-                          ? new Date(lunch.signup_cutoff_at)
-                              .toISOString()
-                              .slice(0, 16)
-                          : ""
-                      }
+                      defaultValue={toDatetimeLocalValue(
+                        lunch.signup_cutoff_at,
+                        ctx.club.timezone
+                      )}
                     />
                   </div>
                   <Button type="submit" variant="outline">
@@ -668,7 +595,8 @@ export default async function LunchDetailPage({
                   </Button>
                 </form>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Clear it to leave sign-ups open until the lunch.
+                  Clear it to leave sign-ups open until the lunch. Times are
+                  in {ctx.club.timezone}.
                 </p>
               </CardContent>
             </Card>
@@ -688,7 +616,14 @@ export default async function LunchDetailPage({
                 >
                   <div className="space-y-2">
                     <Label htmlFor="membershipId">Member</Label>
-                    <Select name="membershipId" required>
+                    <Select
+                      name="membershipId"
+                      required
+                      items={addable.map((m) => ({
+                        value: m.id,
+                        label: m.full_name || m.email,
+                      }))}
+                    >
                       <SelectTrigger id="membershipId" className="w-full">
                         <SelectValue placeholder="Pick a member…" />
                       </SelectTrigger>
@@ -754,113 +689,6 @@ export default async function LunchDetailPage({
               )}
             </CardContent>
           </Card>
-
-          {/* Wine Master corner */}
-          {ctx.isWineMaster ? (
-            <Card className="border-gold/30">
-              <CardHeader>
-                <CardTitle>Wine selection &amp; pairing</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {lunchWines.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No wines selected for this lunch yet.
-                  </p>
-                ) : (
-                  <ul className="space-y-2">
-                    {lunchWines.map((lw) => (
-                      <li
-                        key={lw.id}
-                        className="flex items-start justify-between gap-3 rounded-lg border border-border p-3 text-sm"
-                      >
-                        <span>
-                          <span className="font-medium">
-                            {lw.wines?.name}
-                            {lw.wines?.vintage ? ` ${lw.wines.vintage}` : ""}
-                          </span>{" "}
-                          <Badge
-                            tone={lw.wines?.source === "cellar" ? "info" : "neutral"}
-                            className="ml-1 align-middle"
-                          >
-                            {lw.wines?.source === "cellar"
-                              ? "club cellar"
-                              : "restaurant list"}
-                          </Badge>
-                          {lw.pairing_notes ? (
-                            <span className="mt-0.5 block text-muted-foreground">
-                              {lw.pairing_notes}
-                            </span>
-                          ) : null}
-                        </span>
-                        <form
-                          action={removeLunchWineAction.bind(
-                            null,
-                            slug,
-                            lunch.id,
-                            lw.id
-                          )}
-                        >
-                          <Button type="submit" variant="destructive" size="sm">
-                            Remove
-                          </Button>
-                        </form>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                {wines.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Your cellar is empty —{" "}
-                    <Link
-                      href={`/c/${slug}/wine`}
-                      className="text-foreground underline underline-offset-4 hover:text-primary"
-                    >
-                      add wines to the catalogue
-                    </Link>{" "}
-                    first.
-                  </p>
-                ) : (
-                  <form
-                    action={addLunchWineAction.bind(null, slug, lunch.id)}
-                    className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
-                  >
-                    <div className="space-y-2">
-                      <Label htmlFor="wineId">Wine</Label>
-                      <Select name="wineId" required>
-                        <SelectTrigger id="wineId" className="w-full">
-                          <SelectValue placeholder="Pick a wine…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {wines.map((w) => (
-                            <SelectItem key={w.id} value={w.id}>
-                              {w.name}
-                              {w.vintage ? ` ${w.vintage}` : ""} ·{" "}
-                              {w.source === "cellar" ? "cellar" : "restaurant"}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="pairingNotes">Pairing</Label>
-                      <Input
-                        id="pairingNotes"
-                        name="pairingNotes"
-                        placeholder="With the main — ribeye"
-                      />
-                    </div>
-                    <Button type="submit" variant="gold">
-                      Add wine
-                    </Button>
-                  </form>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Members never see this — the blind tasting stays in the room.
-                </p>
-              </CardContent>
-            </Card>
-          ) : null}
         </section>
       ) : null}
     </div>

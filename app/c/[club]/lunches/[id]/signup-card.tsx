@@ -24,6 +24,8 @@ interface SignupCardProps {
   lunchId: string;
   guestsAllowed: boolean;
   maxGuests: number;
+  /** Formatted in the club's zone; null when the lunch has no guest date. */
+  guestsOpenAt: string | null;
   seatsLeft: number;
   cutoffPassed: boolean;
   phase: SignupPhase;
@@ -75,6 +77,7 @@ export function SignupCard({
   lunchId,
   guestsAllowed,
   maxGuests,
+  guestsOpenAt,
   seatsLeft,
   cutoffPassed,
   phase,
@@ -107,8 +110,12 @@ export function SignupCard({
   useSuccessToast(guestPending, guestState.error, "Guests updated");
   useSuccessToast(cancelPending, cancelState.error, "Your place was withdrawn");
 
-  const guestsUi =
-    guestsAllowed && (phase === "guests" || isCommittee);
+  // The guest date binds everyone, committee included.
+  const guestsUi = guestsAllowed && phase === "guests";
+  const guestsLater = guestsAllowed && !guestsUi;
+  const guestsLaterNote = guestsOpenAt
+    ? `Guests may be added from ${guestsOpenAt}.`
+    : "Guest places open later.";
 
   if (cutoffPassed || phase === "closed") {
     return (
@@ -126,6 +133,8 @@ export function SignupCard({
 
   if (mySignup) {
     const confirmed = mySignup.status === "confirmed";
+    // Guests already on the list can always be reduced before the cutoff.
+    const canChangeGuests = guestsUi || mySignup.guest_count > 0;
     return (
       <Card className={confirmed ? "border-success/30" : "border-warning/30"}>
         <CardHeader>
@@ -141,11 +150,11 @@ export function SignupCard({
               {mySignup.guest_count > 1 ? "s" : ""}
               {mySignup.guest_names ? ` — ${mySignup.guest_names}` : ""}.
             </p>
-          ) : guestsAllowed && phase === "members" && !isCommittee ? (
-            <p className="text-sm text-muted-foreground">{phaseDetail}</p>
+          ) : guestsLater ? (
+            <p className="text-sm text-muted-foreground">{guestsLaterNote}</p>
           ) : null}
 
-          {guestsUi && !editingGuests ? (
+          {canChangeGuests && !editingGuests ? (
             <Button
               variant="outline"
               size="sm"
@@ -155,7 +164,7 @@ export function SignupCard({
             </Button>
           ) : null}
 
-          {guestsUi && editingGuests ? (
+          {canChangeGuests && editingGuests ? (
             <form
               action={guestForm}
               className="space-y-3 rounded-xl border border-border bg-muted/40 p-4"
@@ -318,9 +327,11 @@ export function SignupCard({
                 </div>
               ) : null}
             </>
-          ) : guestsAllowed && phase === "members" ? (
+          ) : guestsLater ? (
             <p className="text-xs text-muted-foreground">
-              Guest places open later. Add your own name first.
+              {/* In the members window the header already gives the date. */}
+              {phase === "members" ? "Guest places open later." : guestsLaterNote}{" "}
+              Add your own name first.
             </p>
           ) : null}
           <FormError message={signupState.error} />

@@ -4,11 +4,36 @@ All notable changes to Drunken Peaches are recorded here. Newest first.
 
 ## Index
 
+- **[0.6.0](#060--2026-10-05)** — Simpler app: the Cellar, venue tastings and speaking roles removed; each lunch decides on guests; the guest date binds the committee too.
 - **[0.5.0](#050--2026-09-23)** — Committee assigns Food 1 / Food 2 / Wine 1 / Wine 2 speaking roles on a lunch; assignees are written to and see the duty in-app.
 - **[0.4.0](#040--2026-09-23)** — Configurable three-phase lunch sign-up windows (committee → members → guests), with a next-open-lunch rule for members.
 - **[0.3.0](#030--2026-09-23)** — Quiet-luxury members' club redesign: mobile-first shell, oxblood-on-paper tokens, club-secretary copy, peach emoji retired.
 - **[0.2.0](#020--2026-06-13)** — Front-end redesign: "editorial wine-cellar" design system, light + dark themes, new component library, and a full screen-by-screen UI overhaul.
 - **[0.1.0](#010--2026-06-13)** — Initial build: multi-tenant club lunch & member management (auth, members, venues, lunches, sign-ups/waitlist, wine, email, reminder cron).
+
+---
+
+## 0.6.0 — 2026-10-05
+
+Fewer features, each one doing its job. Migration
+`supabase/migrations/00006_guests_per_lunch.sql`.
+
+- **Removed:** the Cellar (wine catalogue, pairings, the Wine Master flag),
+  venue tastings and the candidate / tasting / approved pipeline, and
+  speaking roles. Their tables were empty and stay in the schema, unused,
+  until a cleanup migration.
+- **Venues:** one list. Add a venue with just a name; notes are free text.
+  A venue with lunches is archived instead of deleted, and can be restored.
+  "Create venue" in the lunch form's venue picker adds one and selects it.
+- **Guests:** the club-wide guest setting is gone. Every lunch must say
+  whether guests are allowed (and how many per member). Existing lunches
+  kept the setting they were inheriting.
+- **Guest date:** committee members could add guests before `guests_open_at`.
+  They now wait like everyone else, in the UI and in `sign_up_for_lunch` /
+  `update_my_guests`. Committee priority still covers their own names.
+  Reducing guests stays allowed until the cutoff.
+- **Fixes:** the lunch page's cutoff box now reads and saves in the club's
+  time zone, and the venue and member pickers show names instead of ids.
 
 ---
 

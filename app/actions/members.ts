@@ -140,7 +140,6 @@ const editSchema = z.object({
   function: z.string().trim().max(80).optional(),
   comments: z.string().trim().max(2000).optional(),
   role: z.enum(["member", "committee"]),
-  wineMaster: z.boolean(),
   status: z.enum(["invited", "active", "resigned", "lapsed", "removed"]),
   joinedOn: z.string().optional(),
 });
@@ -162,7 +161,6 @@ export async function updateMemberAction(
       function: String(formData.get("function") ?? ""),
       comments: String(formData.get("comments") ?? ""),
       role: formData.get("role"),
-      wineMaster: formData.get("wineMaster") === "on",
       status: formData.get("status"),
       joinedOn: String(formData.get("joinedOn") ?? ""),
     });
@@ -183,7 +181,6 @@ export async function updateMemberAction(
         function: d.function || null,
         comments: d.comments || null,
         role: d.role,
-        wine_master: d.role === "committee" && d.wineMaster,
         status: d.status,
         ...(d.joinedOn ? { joined_on: d.joinedOn } : {}),
       })

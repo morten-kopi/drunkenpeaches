@@ -1,30 +1,14 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { MapPinIcon, PhoneIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { MapPinIcon, PhoneIcon, Trash2Icon } from "lucide-react";
 import { getClubContext } from "@/lib/club-context";
 import { createClient } from "@/lib/supabase/server";
 import { fmtDateShort } from "@/lib/format";
-import type { Tasting, Venue } from "@/lib/types";
-import {
-  setVenueStatusAction,
-  addTastingAction,
-  updateTastingAction,
-  deleteVenueAction,
-} from "@/app/actions/venues";
+import type { Venue } from "@/lib/types";
+import { deleteVenueAction, restoreVenueAction } from "@/app/actions/venues";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { StatusBadge } from "@/components/status-badge";
 import { ErrorBanner } from "@/components/error-banner";
 import { ConfirmSubmit } from "@/components/confirm-submit";
@@ -45,28 +29,22 @@ export default async function VenueDetailPage({
   if (!ctx.isCommittee) notFound();
 
   const supabase = await createClient();
-  const [{ data: venueData }, { data: tastingData }, { data: lunchData }] =
-    await Promise.all([
-      supabase
-        .from("venues")
-        .select("*")
-        .eq("id", id)
-        .eq("club_id", ctx.club.id)
-        .single(),
-      supabase
-        .from("tastings")
-        .select("*")
-        .eq("venue_id", id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("lunches")
-        .select("id, title, lunch_date, status")
-        .eq("venue_id", id)
-        .order("lunch_date", { ascending: false }),
-    ]);
+  const [{ data: venueData }, { data: lunchData }] = await Promise.all([
+    supabase
+      .from("venues")
+      .select("*")
+      .eq("id", id)
+      .eq("club_id", ctx.club.id)
+      .single(),
+    supabase
+      .from("lunches")
+      .select("id, title, lunch_date, status")
+      .eq("venue_id", id)
+      .order("lunch_date", { ascending: false }),
+  ]);
   if (!venueData) notFound();
   const venue = venueData as Venue;
-  const tastings = (tastingData ?? []) as Tasting[];
+  const archived = venue.status === "archived";
   const lunches = (lunchData ?? []) as {
     id: string;
     title: string;
@@ -78,12 +56,12 @@ export default async function VenueDetailPage({
     <div className="space-y-8">
       <ErrorBanner message={error} />
 
-      {/* Header + status toolbar */}
+      {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-h1 text-foreground">{venue.name}</h1>
-            <StatusBadge status={venue.status} />
+            {archived ? <StatusBadge status="archived" /> : null}
           </div>
           <div className="space-y-1 text-sm text-muted-foreground">
             {venue.address ? (
@@ -101,65 +79,21 @@ export default async function VenueDetailPage({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {venue.status === "candidate" ? (
-            <form
-              action={setVenueStatusAction.bind(null, slug, venue.id, "tasting")}
-            >
+          {archived ? (
+            <form action={restoreVenueAction.bind(null, slug, venue.id)}>
               <Button type="submit" variant="outline">
-                Move to tasting
+                Restore venue
               </Button>
             </form>
-          ) : null}
-          {venue.status === "candidate" || venue.status === "tasting" ? (
-            <>
-              <form
-                action={setVenueStatusAction.bind(
-                  null,
-                  slug,
-                  venue.id,
-                  "approved"
-                )}
-              >
-                <Button type="submit">Approve venue</Button>
-              </form>
-              <form
-                action={setVenueStatusAction.bind(
-                  null,
-                  slug,
-                  venue.id,
-                  "rejected"
-                )}
-              >
-                <ConfirmSubmit
-                  confirmTitle="Reject venue?"
-                  confirmMessage={`Reject ${venue.name}? You can still find it under rejected venues.`}
-                  confirmLabel="Reject"
-                  variant="destructive"
-                >
-                  Reject
-                </ConfirmSubmit>
-              </form>
-            </>
-          ) : null}
-          {venue.status === "approved" ? (
-            <Button render={<Link href={`/c/${slug}/lunches/new`} />}>
+          ) : (
+            <Button
+              render={
+                <Link href={`/c/${slug}/lunches/new?venue=${venue.id}`} />
+              }
+            >
               Book a lunch here
             </Button>
-          ) : null}
-          {venue.status === "rejected" || venue.status === "archived" ? (
-            <form
-              action={setVenueStatusAction.bind(
-                null,
-                slug,
-                venue.id,
-                "candidate"
-              )}
-            >
-              <Button type="submit" variant="outline">
-                Back to candidates
-              </Button>
-            </form>
-          ) : null}
+          )}
         </div>
       </div>
 
@@ -167,103 +101,6 @@ export default async function VenueDetailPage({
       <section className="space-y-3">
         <h2 className="text-h2 text-foreground">Details</h2>
         <VenueForm slug={slug} venue={venue} />
-      </section>
-
-      <Separator />
-
-      {/* Tastings */}
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-h2 text-foreground">Committee tastings</h2>
-          <p className="text-sm text-muted-foreground">
-            Record the evaluation visit and the feedback you&apos;d share with
-            the restaurant — it informs the go / no-go.
-          </p>
-        </div>
-
-        {tastings.map((t) => (
-          <Card key={t.id}>
-            <CardContent className="pt-(--card-spacing)">
-              <form
-                action={updateTastingAction.bind(null, slug, venue.id, t.id)}
-                className="space-y-4"
-              >
-                <div className="grid gap-4 sm:grid-cols-[auto_1fr_auto] sm:items-end">
-                  <div className="space-y-2">
-                    <Label htmlFor={`date-${t.id}`}>Tasting date</Label>
-                    <Input
-                      id={`date-${t.id}`}
-                      name="tastingDate"
-                      type="date"
-                      defaultValue={t.tasting_date ?? ""}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor={`outcome-${t.id}`}>Outcome</Label>
-                    <Select name="outcome" defaultValue={t.outcome}>
-                      <SelectTrigger
-                        id={`outcome-${t.id}`}
-                        className="w-full sm:w-40"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="go">Go</SelectItem>
-                        <SelectItem value="no_go">No-go</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center pb-1">
-                    <StatusBadge status={t.outcome} />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`feedback-${t.id}`}>Feedback</Label>
-                  <Textarea
-                    id={`feedback-${t.id}`}
-                    name="feedback"
-                    rows={3}
-                    defaultValue={t.feedback ?? ""}
-                    placeholder="Food, room, service, wine list, value…"
-                  />
-                </div>
-                <Button type="submit" variant="outline" size="sm">
-                  Save tasting
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        ))}
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Add a tasting</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form
-              action={addTastingAction.bind(null, slug, venue.id)}
-              className="grid gap-4 sm:grid-cols-[auto_1fr_auto] sm:items-end"
-            >
-              <div className="space-y-2">
-                <Label htmlFor="newTastingDate">Date</Label>
-                <Input id="newTastingDate" name="tastingDate" type="date" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="newFeedback">Initial notes (optional)</Label>
-                <Input
-                  id="newFeedback"
-                  name="feedback"
-                  placeholder="Booked for 6 committee members…"
-                />
-              </div>
-              <Button type="submit" variant="outline">
-                <PlusIcon />
-                Add tasting
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
       </section>
 
       {/* Lunches at this venue */}
@@ -292,22 +129,27 @@ export default async function VenueDetailPage({
         </>
       ) : null}
 
-      <Separator />
-      <form action={deleteVenueAction.bind(null, slug, venue.id)}>
-        <ConfirmSubmit
-          confirmTitle={lunches.length > 0 ? "Archive venue?" : "Delete venue?"}
-          confirmMessage={
-            lunches.length > 0
-              ? `${venue.name} has lunch history, so it will be archived instead of deleted.`
-              : `This permanently deletes ${venue.name}.`
-          }
-          confirmLabel={lunches.length > 0 ? "Archive venue" : "Delete venue"}
-          variant="destructive"
-        >
-          <Trash2Icon />
-          {lunches.length > 0 ? "Archive venue" : "Delete venue"}
-        </ConfirmSubmit>
-      </form>
+      {/* An archived venue with lunches is already as retired as it gets. */}
+      {archived && lunches.length > 0 ? null : (
+        <>
+          <Separator />
+          <form action={deleteVenueAction.bind(null, slug, venue.id)}>
+            <ConfirmSubmit
+              confirmTitle={lunches.length > 0 ? "Archive venue?" : "Delete venue?"}
+              confirmMessage={
+                lunches.length > 0
+                  ? `${venue.name} has lunch history, so it will be archived instead of deleted.`
+                  : `This permanently deletes ${venue.name}.`
+              }
+              confirmLabel={lunches.length > 0 ? "Archive venue" : "Delete venue"}
+              variant="destructive"
+            >
+              <Trash2Icon />
+              {lunches.length > 0 ? "Archive venue" : "Delete venue"}
+            </ConfirmSubmit>
+          </form>
+        </>
+      )}
     </div>
   );
 }

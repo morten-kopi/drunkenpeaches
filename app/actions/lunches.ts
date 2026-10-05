@@ -14,14 +14,7 @@ import {
   sendPromoted,
   sendLunchCancelled,
   sendLunchChanged,
-  sendCritiqueRoleAssigned,
 } from "@/lib/email";
-import {
-  critiqueRoleDuty,
-  critiqueRoleLabel,
-  isLunchCritiqueRole,
-} from "@/lib/lunch-roles";
-import type { LunchRole } from "@/lib/types";
 import {
   fillMissingPhaseTimestamps,
   findNextOpenLunch,
@@ -85,8 +78,15 @@ const lunchSchema = z.object({
   membersOpenAt: z.string().optional(),
   guestsOpenAt: z.string().optional(),
   cutoffAt: z.string().optional(),
-  guestsMode: z.enum(["inherit", "yes", "no"]),
-  maxGuests: z.coerce.number().int().min(0).optional(),
+  guestsMode: z.enum(["yes", "no"], {
+    message: "Decide whether guests are allowed",
+  }),
+  maxGuests: z.coerce
+    .number()
+    .int()
+    .min(1, "Allow at least 1 guest per member")
+    .max(10, "At most 10 guests per member")
+    .optional(),
   notes: z.string().max(2000).optional(),
 });
 
@@ -113,7 +113,7 @@ function parseLunchForm(formData: FormData, club: Club) {
     membersOpenAt: String(formData.get("membersOpenAt") ?? ""),
     guestsOpenAt: String(formData.get("guestsOpenAt") ?? ""),
     cutoffAt: String(formData.get("cutoffAt") ?? ""),
-    guestsMode: formData.get("guestsMode") ?? "inherit",
+    guestsMode: formData.get("guestsMode") || undefined,
     maxGuests: formData.get("maxGuests") || undefined,
     notes: String(formData.get("notes") ?? ""),
   });
@@ -143,6 +143,11 @@ function parseLunchForm(formData: FormData, club: Club) {
   const orderError = validatePhaseOrder(phases);
   if (orderError) return { error: orderError } as const;
 
+  const guestsAllowed = d.guestsMode === "yes";
+  if (guestsAllowed && d.maxGuests == null) {
+    return { error: "Set the maximum guests per member" } as const;
+  }
+
   return {
     row: {
       title: d.title,
@@ -154,9 +159,8 @@ function parseLunchForm(formData: FormData, club: Club) {
       members_open_at: phases.members_open_at,
       guests_open_at: phases.guests_open_at,
       signup_cutoff_at: phases.signup_cutoff_at,
-      guests_allowed: d.guestsMode === "inherit" ? null : d.guestsMode === "yes",
-      max_guests_per_member:
-        d.guestsMode === "inherit" ? null : (d.maxGuests ?? null),
+      guests_allowed: guestsAllowed,
+      max_guests_per_member: guestsAllowed ? d.maxGuests : 0,
       notes: d.notes || null,
     },
   } as const;
@@ -399,11 +403,11 @@ export async function setCutoffAction(
   try {
     const ctx = await requireCommittee(slug);
     const raw = String(formData.get("cutoffAt") ?? "").trim();
+    const cutoff = raw ? fromDatetimeLocalValue(raw, ctx.club.timezone) : null;
+    if (raw && !cutoff) throw new Error("Invalid sign-up cutoff");
     const { error } = await ctx.supabase
       .from("lunches")
-      .update({
-        signup_cutoff_at: raw ? new Date(raw).toISOString() : null,
-      })
+      .update({ signup_cutoff_at: cutoff })
       .eq("id", lunchId);
     if (error) throw new Error(error.message);
   } catch (e) {
@@ -504,7 +508,6 @@ export async function updateMyGuestsAction(
     const blocked = guestEditBlockReason({
       lunch: lunchRow as Lunch,
       club: ctx.club,
-      isCommittee: ctx.membership.role === "committee",
       currentGuestCount: existing?.guest_count ?? 0,
       nextGuestCount,
     });
@@ -638,95 +641,5 @@ export async function markAttendanceAction(
     err = errorMessage(e);
   }
   revalidatePath(lunchPath(slug, lunchId));
-  if (err) redirect(`${lunchPath(slug, lunchId)}?error=${encodeURIComponent(err)}`);
-}
-
-function revalidateLunchSurfaces(slug: string, lunchId: string) {
-  revalidatePath(lunchPath(slug, lunchId));
-  revalidatePath(lunchPath(slug));
-  revalidatePath(`/c/${slug}/dashboard`);
-}
-
-/** Committee assigns a speaking role to a confirmed attendee. */
-export async function assignLunchRoleAction(
-  slug: string,
-  lunchId: string,
-  formData: FormData
-) {
-  let err: string | null = null;
-  try {
-    const ctx = await requireCommittee(slug);
-    const role = String(formData.get("role") ?? "");
-    const membershipId = String(formData.get("membershipId") ?? "");
-    if (!isLunchCritiqueRole(role)) throw new Error("Pick a speaking role");
-    if (!membershipId) throw new Error("Pick a confirmed attendee");
-
-    const { data: existing } = await ctx.supabase
-      .from("lunch_roles")
-      .select("membership_id")
-      .eq("lunch_id", lunchId)
-      .eq("role", role)
-      .maybeSingle();
-
-    const { data, error } = await ctx.supabase.rpc("assign_lunch_role", {
-      p_lunch: lunchId,
-      p_role: role,
-      p_membership: membershipId,
-    });
-    if (error) throw new Error(error.message);
-
-    const assigned = data as LunchRole | null;
-    const holderChanged =
-      !!assigned && assigned.membership_id !== existing?.membership_id;
-    if (holderChanged) {
-      const [lunch, member] = await Promise.all([
-        getLunchForEmail(ctx, lunchId),
-        ctx.supabase
-          .from("memberships")
-          .select("email, full_name")
-          .eq("id", assigned.membership_id)
-          .single(),
-      ]);
-      if (lunch && member.data) {
-        const appUrl =
-          process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-        await sendCritiqueRoleAssigned({
-          to: member.data.email,
-          name: member.data.full_name,
-          clubName: ctx.club.name,
-          lunchTitle: lunch.title,
-          lunchDate: lunch.lunch_date,
-          venueName: lunch.venues?.name,
-          roleLabel: critiqueRoleLabel(role),
-          duty: critiqueRoleDuty(role),
-          lunchUrl: `${appUrl}${lunchPath(slug, lunchId)}`,
-        });
-      }
-    }
-  } catch (e) {
-    err = errorMessage(e);
-  }
-  revalidateLunchSurfaces(slug, lunchId);
-  if (err) redirect(`${lunchPath(slug, lunchId)}?error=${encodeURIComponent(err)}`);
-}
-
-export async function clearLunchRoleAction(
-  slug: string,
-  lunchId: string,
-  role: string
-) {
-  let err: string | null = null;
-  try {
-    const ctx = await requireCommittee(slug);
-    if (!isLunchCritiqueRole(role)) throw new Error("Unknown speaking role");
-    const { error } = await ctx.supabase.rpc("clear_lunch_role", {
-      p_lunch: lunchId,
-      p_role: role,
-    });
-    if (error) throw new Error(error.message);
-  } catch (e) {
-    err = errorMessage(e);
-  }
-  revalidateLunchSurfaces(slug, lunchId);
   if (err) redirect(`${lunchPath(slug, lunchId)}?error=${encodeURIComponent(err)}`);
 }

@@ -10,20 +10,22 @@ export const metadata: Metadata = { title: "New lunch" };
 
 export default async function NewLunchPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ club: string }>;
+  searchParams: Promise<{ venue?: string }>;
 }) {
   const { club: slug } = await params;
+  const { venue: initialVenueId } = await searchParams;
   const ctx = await getClubContext(slug);
   if (!ctx.isCommittee) notFound();
 
   const supabase = await createClient();
   const { data: venues } = await supabase
     .from("venues")
-    .select("id, name, status, default_capacity")
+    .select("id, name, default_capacity")
     .eq("club_id", ctx.club.id)
     .neq("status", "archived")
-    .neq("status", "rejected")
     .order("name");
 
   return (
@@ -36,7 +38,8 @@ export default async function NewLunchPage({
       <LunchForm
         slug={slug}
         club={ctx.club}
-        venues={(venues ?? []) as Pick<Venue, "id" | "name" | "status" | "default_capacity">[]}
+        venues={(venues ?? []) as Pick<Venue, "id" | "name" | "default_capacity">[]}
+        initialVenueId={initialVenueId}
       />
     </div>
   );

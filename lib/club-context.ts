@@ -8,7 +8,6 @@ export interface ClubContext {
   club: Club;
   membership: Membership;
   isCommittee: boolean;
-  isWineMaster: boolean;
 }
 
 /**
@@ -46,7 +45,6 @@ export const getClubContext = cache(
       club: club as Club,
       membership: membership as Membership,
       isCommittee: membership.role === "committee",
-      isWineMaster: membership.role === "committee" && membership.wine_master,
     };
   }
 );

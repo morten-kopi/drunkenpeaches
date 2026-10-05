@@ -11,17 +11,7 @@ import {
 import { getClubContext } from "@/lib/club-context";
 import { createClient } from "@/lib/supabase/server";
 import { fmtDate, fmtTime, todayInZone } from "@/lib/format";
-import {
-  guestPolicy,
-  seatsTaken,
-  type Lunch,
-  type LunchRole,
-  type Signup,
-} from "@/lib/types";
-import {
-  critiqueRoleDuty,
-  critiqueRoleLabel,
-} from "@/lib/lunch-roles";
+import { seatsTaken, type Lunch, type Signup } from "@/lib/types";
 import {
   findNextOpenLunch,
   lunchCardPhaseLabel,
@@ -35,7 +25,6 @@ import { EmptyState } from "@/components/empty-state";
 import { SeatMeter } from "@/components/seat-meter";
 import { StatusBadge } from "@/components/status-badge";
 import { LunchCard } from "@/components/lunch-card";
-import { CritiqueRoleBadge } from "@/components/critique-role-badge";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -83,30 +72,6 @@ export default async function DashboardPage({
     }
   }
 
-  const myUpcomingRoles: (LunchRole & { lunch: LunchRow })[] = [];
-  if (lunches.length) {
-    const { data: roleRows } = await supabase
-      .from("lunch_roles")
-      .select("*")
-      .eq("membership_id", ctx.membership.id)
-      .in(
-        "lunch_id",
-        lunches.map((l) => l.id)
-      );
-    const lunchById = new Map(lunches.map((l) => [l.id, l]));
-    for (const row of (roleRows ?? []) as LunchRole[]) {
-      const lunch = lunchById.get(row.lunch_id);
-      if (lunch && lunch.status !== "cancelled") {
-        myUpcomingRoles.push({ ...row, lunch });
-      }
-    }
-    myUpcomingRoles.sort((a, b) =>
-      a.lunch.lunch_date.localeCompare(b.lunch.lunch_date)
-    );
-  }
-  const myRoleByLunch = new Map(myUpcomingRoles.map((r) => [r.lunch_id, r.role]));
-  const nextRole = next ? (myRoleByLunch.get(next.id) ?? null) : null;
-
   const nextSignups = next ? (signupsByLunch.get(next.id) ?? []) : [];
   const mySignup = next
     ? nextSignups.find(
@@ -134,7 +99,7 @@ export default async function DashboardPage({
   })();
 
   // Committee extras
-  let pipelineCount = 0;
+  let venueCount = 0;
   let memberCount = 0;
   if (ctx.isCommittee) {
     const [{ count: vc }, { count: mc }] = await Promise.all([
@@ -142,14 +107,14 @@ export default async function DashboardPage({
         .from("venues")
         .select("id", { count: "exact", head: true })
         .eq("club_id", ctx.club.id)
-        .in("status", ["candidate", "tasting"]),
+        .neq("status", "archived"),
       supabase
         .from("memberships")
         .select("id", { count: "exact", head: true })
         .eq("club_id", ctx.club.id)
         .eq("status", "active"),
     ]);
-    pipelineCount = vc ?? 0;
+    venueCount = vc ?? 0;
     memberCount = mc ?? 0;
   }
 
@@ -170,34 +135,6 @@ export default async function DashboardPage({
         ) : null}
       </PageHeader>
 
-      {myUpcomingRoles.length > 0 ? (
-        <Card className="club-notice gap-3 p-5 sm:p-7">
-          <p className="club-kicker">Your speaking roles</p>
-          <ul className="space-y-3">
-            {myUpcomingRoles.map((r) => (
-              <li key={r.id} className="space-y-1">
-                <p className="font-heading text-[1.05rem] leading-snug">
-                  You are {critiqueRoleLabel(r.role)} — {r.lunch.title}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {fmtDate(r.lunch.lunch_date)}
-                  {r.lunch.venues ? ` · ${r.lunch.venues.name}` : ""}
-                  {" — "}
-                  {critiqueRoleDuty(r.role)}
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  render={<Link href={`/c/${slug}/lunches/${r.lunch.id}`} />}
-                >
-                  Open the luncheon
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ) : null}
-
       {/* Next-lunch hero */}
       {next ? (
         <Card className="club-notice gap-0 p-5 sm:p-7">
@@ -208,7 +145,6 @@ export default async function DashboardPage({
                 <h2 className="text-h2 text-foreground">{next.title}</h2>
                 <StatusBadge status={next.status} />
                 {mySignup ? <StatusBadge status={mySignup.status} /> : null}
-                {nextRole ? <CritiqueRoleBadge role={nextRole} /> : null}
               </div>
               <div className="space-y-1 text-sm text-muted-foreground">
                 <p className="flex items-center gap-1.5">
@@ -283,15 +219,9 @@ export default async function DashboardPage({
                   taken={seatsTaken(s)}
                   capacity={l.capacity}
                   waitlisted={waitlistedCount(s)}
-                  myRoleLabel={
-                    myRoleByLunch.has(l.id)
-                      ? critiqueRoleLabel(myRoleByLunch.get(l.id)!)
-                      : null
-                  }
                   phaseLabel={
                     l.status === "released"
                       ? lunchCardPhaseLabel(l, ctx.club.timezone, {
-                          guestsAllowed: guestPolicy(ctx.club, l).allowed,
                           isNextOpen: nextOpen?.id === l.id,
                         })
                       : null
@@ -314,10 +244,10 @@ export default async function DashboardPage({
                 </div>
                 <div>
                   <p className="font-heading text-2xl leading-none">
-                    {pipelineCount}
+                    {venueCount}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    venues under consideration
+                    venues on file
                   </p>
                 </div>
               </div>

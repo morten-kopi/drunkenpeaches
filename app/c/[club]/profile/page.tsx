@@ -71,9 +71,6 @@ export default async function ProfilePage({
             {ctx.membership.role === "committee" ? (
               <Badge variant="secondary">Committee</Badge>
             ) : null}
-            {ctx.membership.wine_master ? (
-              <Badge tone="info">Wine Master</Badge>
-            ) : null}
           </div>
         </div>
       </div>
