@@ -42,3 +42,7 @@ next-env.d.ts
 
 # supabase cli
 supabase/.temp
+
+# member lists and import passwords (this repo is public)
+*.xlsx
+*-temporary-passwords.csv

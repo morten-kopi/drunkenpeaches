@@ -15,7 +15,7 @@ export default async function SetPasswordPage() {
 
   const { data: membership } = await supabase
     .from("memberships")
-    .select("full_name, clubs(name)")
+    .select("first_name, last_name, phone, dietary_notes, clubs(name)")
     .eq("user_id", user.id)
     .eq("status", "active")
     .limit(1)
@@ -30,7 +30,14 @@ export default async function SetPasswordPage() {
       title={`Welcome to ${clubName}`}
       description="Choose a password and complete your particulars for the book."
     >
-      <SetPasswordForm defaultName={membership?.full_name ?? ""} />
+      <SetPasswordForm
+        defaults={{
+          firstName: membership?.first_name ?? "",
+          lastName: membership?.last_name ?? "",
+          phone: membership?.phone ?? "",
+          dietary: membership?.dietary_notes ?? "",
+        }}
+      />
     </AuthShell>
   );
 }

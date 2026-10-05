@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getClubContext } from "@/lib/club-context";
-import { fmtDateShort, initials } from "@/lib/format";
+import { initials } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -63,8 +63,11 @@ export default async function ProfilePage({
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <span>
               {ctx.club.name} · member since{" "}
-              {fmtDateShort(ctx.membership.joined_on)}
+              {ctx.membership.joined_on.slice(0, 4)}
             </span>
+            {ctx.membership.function ? (
+              <span>{ctx.membership.function}</span>
+            ) : null}
             {ctx.membership.role === "committee" ? (
               <Badge variant="secondary">Committee</Badge>
             ) : null}

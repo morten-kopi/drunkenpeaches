@@ -51,14 +51,25 @@ export function MemberEditForm({
   return (
     <>
       <form ref={formRef} action={formAction} className="max-w-2xl space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="fullName">Name</Label>
-          <Input
-            id="fullName"
-            name="fullName"
-            defaultValue={member.full_name}
-            required
-          />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="firstName">First name</Label>
+            <Input
+              id="firstName"
+              name="firstName"
+              defaultValue={member.first_name}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lastName">Last name</Label>
+            <Input
+              id="lastName"
+              name="lastName"
+              defaultValue={member.last_name}
+              required
+            />
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -68,6 +79,20 @@ export function MemberEditForm({
           </div>
           <p className="text-xs text-muted-foreground">
             Email is the member&apos;s login and can&apos;t be changed here.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="function">Function</Label>
+          <Input
+            id="function"
+            name="function"
+            defaultValue={member.function ?? ""}
+            placeholder="e.g. Treasurer"
+          />
+          <p className="text-xs text-muted-foreground">
+            Shown on the roster. Access comes from the role below, not from
+            this field.
           </p>
         </div>
 
@@ -156,6 +181,17 @@ export function MemberEditForm({
             <span>Wine Master — keeps the cellar and pairing notes</span>
           </label>
         ) : null}
+
+        <div className="space-y-2">
+          <Label htmlFor="comments">Comments</Label>
+          <Textarea
+            id="comments"
+            name="comments"
+            rows={3}
+            defaultValue={member.comments ?? ""}
+            placeholder="e.g. abroad 2012-15"
+          />
+        </div>
 
         <FormError message={state.error} />
         <Button

@@ -27,14 +27,27 @@ export function ProfileForm({
 
   return (
     <form action={formAction} className="max-w-2xl space-y-6">
-      <div className="space-y-2">
-        <Label htmlFor="fullName">Name</Label>
-        <Input
-          id="fullName"
-          name="fullName"
-          defaultValue={membership.full_name}
-          required
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="firstName">First name</Label>
+          <Input
+            id="firstName"
+            name="firstName"
+            defaultValue={membership.first_name}
+            autoComplete="given-name"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="lastName">Last name</Label>
+          <Input
+            id="lastName"
+            name="lastName"
+            defaultValue={membership.last_name}
+            autoComplete="family-name"
+            required
+          />
+        </div>
       </div>
       <div className="space-y-2">
         <Label>Email</Label>

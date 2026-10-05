@@ -52,10 +52,20 @@ export default async function MembersPage({
               {initials(m.full_name || m.email)}
             </AvatarFallback>
           </Avatar>
-          <span className="font-medium">{m.full_name || "—"}</span>
-          {m.wine_master ? (
-            <WineIcon className="size-3.5 text-gold" aria-label="Wine Master" />
-          ) : null}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{m.full_name || "—"}</span>
+              {m.wine_master ? (
+                <WineIcon
+                  className="size-3.5 text-gold"
+                  aria-label="Wine Master"
+                />
+              ) : null}
+            </div>
+            {m.function ? (
+              <p className="text-xs text-muted-foreground">{m.function}</p>
+            ) : null}
+          </div>
         </div>
       ),
     },

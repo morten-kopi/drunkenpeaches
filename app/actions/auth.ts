@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { errorMessage } from "@/lib/action-helpers";
@@ -12,7 +13,8 @@ export type FormState = { error?: string; success?: boolean };
 
 const signupSchema = z.object({
   clubName: z.string().min(2, "Club name is too short").max(80),
-  fullName: z.string().min(1, "Your name is required").max(80),
+  firstName: z.string().trim().min(1, "Your first name is required").max(80),
+  lastName: z.string().trim().min(1, "Your last name is required").max(80),
   email: z.string().email("Enter a valid email"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
@@ -29,13 +31,14 @@ export async function createClubAction(
   try {
     const parsed = signupSchema.safeParse({
       clubName: formData.get("clubName"),
-      fullName: formData.get("fullName"),
+      firstName: formData.get("firstName"),
+      lastName: formData.get("lastName"),
       email: formData.get("email"),
       password: formData.get("password"),
     });
     if (!parsed.success)
       return { error: parsed.error.issues[0].message };
-    const { clubName, fullName, email, password } = parsed.data;
+    const { clubName, firstName, lastName, email, password } = parsed.data;
 
     const admin = createAdminClient();
 
@@ -92,7 +95,8 @@ export async function createClubAction(
       club_id: club.id,
       user_id: userId,
       email,
-      full_name: fullName,
+      first_name: firstName,
+      last_name: lastName,
       role: "committee",
       status: "active",
     });
@@ -171,25 +175,44 @@ export async function resetPasswordAction(
 
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: error.message };
+  try {
+    await clearTemporaryPassword(user);
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
   redirect("/");
 }
 
 /**
- * Invited member finishing onboarding: sets their password and completes
- * their profile on every membership linked to their account.
+ * Imported members start on a temporary password and are held on the
+ * set-password page (see lib/supabase/middleware.ts) until they choose one.
+ */
+async function clearTemporaryPassword(user: User) {
+  if (!user.app_metadata?.must_change_password) return;
+  const { error } = await createAdminClient().auth.admin.updateUserById(
+    user.id,
+    { app_metadata: { must_change_password: false } }
+  );
+  if (error) throw error;
+}
+
+/**
+ * Invited or imported member finishing onboarding: sets their password and
+ * completes their profile on every membership linked to their account.
  */
 export async function completeProfileAction(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
   const password = String(formData.get("password") ?? "");
-  const fullName = String(formData.get("fullName") ?? "").trim();
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const dietary = String(formData.get("dietary") ?? "").trim() || null;
 
   if (password.length < 8)
     return { error: "Password must be at least 8 characters" };
-  if (!fullName) return { error: "Your name is required" };
+  if (!firstName || !lastName) return { error: "Your name is required" };
 
   try {
     const supabase = await createClient();
@@ -205,9 +228,16 @@ export async function completeProfileAction(
     const admin = createAdminClient();
     const { error: profErr } = await admin
       .from("memberships")
-      .update({ full_name: fullName, phone, dietary_notes: dietary })
+      .update({
+        first_name: firstName,
+        last_name: lastName,
+        phone,
+        dietary_notes: dietary,
+      })
       .eq("user_id", user.id);
     if (profErr) return { error: profErr.message };
+
+    await clearTemporaryPassword(user);
   } catch (e) {
     return { error: errorMessage(e) };
   }

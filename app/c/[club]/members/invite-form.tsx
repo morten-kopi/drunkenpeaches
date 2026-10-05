@@ -45,11 +45,15 @@ export function InviteForm({ slug }: { slug: string }) {
         <form
           ref={formRef}
           action={formAction}
-          className="grid gap-4 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end"
+          className="grid gap-4 sm:grid-cols-2 sm:items-end lg:grid-cols-[1fr_1fr_1.4fr_auto_auto]"
         >
           <div className="space-y-2">
-            <Label htmlFor="fullName">Name</Label>
-            <Input id="fullName" name="fullName" required />
+            <Label htmlFor="firstName">First name</Label>
+            <Input id="firstName" name="firstName" required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lastName">Last name</Label>
+            <Input id="lastName" name="lastName" required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -58,7 +62,7 @@ export function InviteForm({ slug }: { slug: string }) {
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>
             <Select name="role" defaultValue="member">
-              <SelectTrigger id="role" className="w-full sm:w-40">
+              <SelectTrigger id="role" className="w-full lg:w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -71,7 +75,7 @@ export function InviteForm({ slug }: { slug: string }) {
             <UserPlusIcon />
             Send invitation
           </Button>
-          <div className="sm:col-span-4">
+          <div className="sm:col-span-2 lg:col-span-5">
             <FormError message={state.error} />
           </div>
         </form>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getClubContext } from "@/lib/club-context";
 import { createClient } from "@/lib/supabase/server";
-import { fmtDateShort, initials } from "@/lib/format";
+import { initials } from "@/lib/format";
 import type { Membership } from "@/lib/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +79,8 @@ export default async function MemberDetailPage({
             <StatusBadge status={member.status} />
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span>Member since {fmtDateShort(member.joined_on)}</span>
+            <span>Member since {member.joined_on.slice(0, 4)}</span>
+            {member.function ? <span>{member.function}</span> : null}
             <Badge variant="secondary" className="capitalize">
               {member.role}
             </Badge>

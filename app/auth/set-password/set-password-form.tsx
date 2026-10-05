@@ -8,7 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FormError } from "@/components/form-error";
 
-export function SetPasswordForm({ defaultName }: { defaultName: string }) {
+export function SetPasswordForm({
+  defaults,
+}: {
+  defaults: { firstName: string; lastName: string; phone: string; dietary: string };
+}) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     completeProfileAction,
     {}
@@ -28,19 +32,37 @@ export function SetPasswordForm({ defaultName }: { defaultName: string }) {
         />
         <p className="text-xs text-muted-foreground">At least 8 characters.</p>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="fullName">Full name</Label>
-        <Input
-          id="fullName"
-          name="fullName"
-          defaultValue={defaultName}
-          autoComplete="name"
-          required
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="firstName">First name</Label>
+          <Input
+            id="firstName"
+            name="firstName"
+            defaultValue={defaults.firstName}
+            autoComplete="given-name"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="lastName">Last name</Label>
+          <Input
+            id="lastName"
+            name="lastName"
+            defaultValue={defaults.lastName}
+            autoComplete="family-name"
+            required
+          />
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="phone">Phone (optional)</Label>
-        <Input id="phone" name="phone" type="tel" autoComplete="tel" />
+        <Input
+          id="phone"
+          name="phone"
+          type="tel"
+          autoComplete="tel"
+          defaultValue={defaults.phone}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="dietary">Dietary preferences (optional)</Label>
@@ -49,6 +71,7 @@ export function SetPasswordForm({ defaultName }: { defaultName: string }) {
           name="dietary"
           placeholder="e.g. no shellfish; vegetarian"
           rows={3}
+          defaultValue={defaults.dietary}
         />
         <p className="text-xs text-muted-foreground">
           The committee shares these notes with the restaurant.
