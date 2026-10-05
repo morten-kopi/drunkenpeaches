@@ -34,7 +34,8 @@ export type LunchPhaseFields = Pick<
 
 /**
  * Released-lunch signup phase. Legacy rows with null timestamps are treated as
- * already open to members (and guests follow guestPolicy) until cutoff.
+ * already open to members (and guests follow guestPolicy) until cutoff. The
+ * "guests" phase is about the guest date only; the lunch still has to allow guests.
  */
 export type SignupPhase =
   | "draft"
@@ -258,14 +259,16 @@ export function findNextOpenLunch<T extends LunchPhaseFields>(
   );
 }
 
-export function guestsAllowedNow(
-  club: Club,
-  lunch: Lunch,
-  now: Date = new Date()
-): boolean {
-  if (!guestPolicy(club, lunch).allowed) return false;
-  const phase = resolveSignupPhase(lunch, now);
-  return phase === "guests";
+/** The lunch allows guests and its guest date has passed. Applies to committee too. */
+export function guestsAllowedNow(lunch: Lunch, now: Date = new Date()): boolean {
+  if (!guestPolicy(lunch).allowed) return false;
+  return resolveSignupPhase(lunch, now) === "guests";
+}
+
+function guestsNotYetReason(lunch: Lunch, timeZone: string): string {
+  return lunch.guests_open_at
+    ? `Guests may be added from ${fmtDateTime(lunch.guests_open_at, timeZone)}`
+    : "Guests may not be added yet";
 }
 
 export function validatePhaseOrder(ts: {
@@ -318,37 +321,31 @@ export function memberSignupBlockReason(opts: {
     return "The sign-up cutoff for this lunch has passed";
   }
 
-  if (opts.isCommittee) {
-    if (guestCount > 0 && !guestPolicy(opts.club, opts.lunch).allowed) {
-      return "Guests are not allowed for this lunch";
+  // Committee may add their own names early, but not guests.
+  if (!opts.isCommittee) {
+    if (phase === "not_open") {
+      return opts.lunch.signup_opens_at
+        ? `Sign-ups open ${fmtDateTime(opts.lunch.signup_opens_at, opts.club.timezone)}`
+        : "Sign-ups are not yet open for this lunch";
     }
-    return null;
-  }
 
-  if (phase === "not_open") {
-    return opts.lunch.signup_opens_at
-      ? `Sign-ups open ${fmtDateTime(opts.lunch.signup_opens_at, opts.club.timezone)}`
-      : "Sign-ups are not yet open for this lunch";
-  }
+    if (opts.nextOpenLunchId && opts.lunch.id !== opts.nextOpenLunchId) {
+      return "You may only add your name to the next luncheon that is currently open";
+    }
 
-  if (opts.nextOpenLunchId && opts.lunch.id !== opts.nextOpenLunchId) {
-    return "You may only add your name to the next luncheon that is currently open";
-  }
-
-  if (phase === "committee") {
-    return opts.lunch.members_open_at
-      ? `Committee priority until ${fmtDateTime(opts.lunch.members_open_at, opts.club.timezone)}`
-      : "Committee priority is in effect";
+    if (phase === "committee") {
+      return opts.lunch.members_open_at
+        ? `Committee priority until ${fmtDateTime(opts.lunch.members_open_at, opts.club.timezone)}`
+        : "Committee priority is in effect";
+    }
   }
 
   if (guestCount > 0) {
-    if (phase === "members") {
-      return opts.lunch.guests_open_at
-        ? `Guests may be added from ${fmtDateTime(opts.lunch.guests_open_at, opts.club.timezone)}`
-        : "Guests may not be added yet";
-    }
-    if (!guestPolicy(opts.club, opts.lunch).allowed) {
+    if (!guestPolicy(opts.lunch).allowed) {
       return "Guests are not allowed for this lunch";
+    }
+    if (phase !== "guests") {
+      return guestsNotYetReason(opts.lunch, opts.club.timezone);
     }
   }
 
@@ -358,7 +355,6 @@ export function memberSignupBlockReason(opts: {
 export function guestEditBlockReason(opts: {
   lunch: Lunch;
   club: Club;
-  isCommittee: boolean;
   currentGuestCount: number;
   nextGuestCount: number;
   now?: Date;
@@ -375,7 +371,7 @@ export function guestEditBlockReason(opts: {
 
   if (opts.nextGuestCount < 0) return "Invalid guest count";
 
-  const policy = guestPolicy(opts.club, opts.lunch);
+  const policy = guestPolicy(opts.lunch);
   if (opts.nextGuestCount > 0 && !policy.allowed) {
     return "Guests are not allowed for this lunch";
   }
@@ -383,15 +379,11 @@ export function guestEditBlockReason(opts: {
     return `At most ${policy.maxPerMember} guest(s) per member`;
   }
 
-  if (opts.isCommittee) return null;
-
   if (
     opts.nextGuestCount > opts.currentGuestCount &&
-    !guestsAllowedNow(opts.club, opts.lunch, now)
+    !guestsAllowedNow(opts.lunch, now)
   ) {
-    return opts.lunch.guests_open_at
-      ? `Guests may be added from ${fmtDateTime(opts.lunch.guests_open_at, opts.club.timezone)}`
-      : "Guests may not be added yet";
+    return guestsNotYetReason(opts.lunch, opts.club.timezone);
   }
 
   return null;
@@ -401,9 +393,10 @@ export function guestEditBlockReason(opts: {
 export function lunchCardPhaseLabel(
   lunch: Lunch,
   timeZone: string,
-  opts?: { guestsAllowed?: boolean; isNextOpen?: boolean }
+  opts?: { isNextOpen?: boolean }
 ): string | null {
   const phase = resolveSignupPhase(lunch);
+  const guestsAllowed = guestPolicy(lunch).allowed;
   switch (phase) {
     case "not_open":
       return lunch.signup_opens_at
@@ -419,11 +412,9 @@ export function lunchCardPhaseLabel(
         : "Members may add their names";
     case "guests":
       if (opts?.isNextOpen) {
-        return opts.guestsAllowed ? "Open — guests welcome" : "Open for sign-up";
+        return guestsAllowed ? "Open — guests welcome" : "Open for sign-up";
       }
-      return opts?.guestsAllowed
-        ? "Guests may be added"
-        : "The list is open";
+      return guestsAllowed ? "Guests may be added" : "The list is open";
     case "closed":
       return "The list is closed";
     default:
@@ -439,6 +430,7 @@ export function signupWindowCopy(
   title: string;
   detail: string;
 } | null {
+  const guestsAllowed = guestPolicy(lunch).allowed;
   switch (phase) {
     case "not_open":
       return {
@@ -457,16 +449,20 @@ export function signupWindowCopy(
     case "members":
       return {
         title: "Open to members",
-        detail: lunch.guests_open_at
-          ? `You may add your name. Guests from ${fmtDateTime(lunch.guests_open_at, timeZone)}.`
-          : "You may add your name. Guests are not yet permitted.",
+        detail: !guestsAllowed
+          ? "You may add your name. No guests at this luncheon."
+          : lunch.guests_open_at
+            ? `You may add your name. Guests from ${fmtDateTime(lunch.guests_open_at, timeZone)}.`
+            : "You may add your name. Guests are not yet permitted.",
       };
     case "guests":
       return {
-        title: "Open, guests permitted",
+        title: guestsAllowed ? "Open, guests permitted" : "Open to members",
         detail: lunch.signup_cutoff_at
           ? `The list closes ${fmtDateTime(lunch.signup_cutoff_at, timeZone)}.`
-          : "Add guests if the table allows it.",
+          : guestsAllowed
+            ? "Add guests if the table allows it."
+            : "You may add your name. No guests at this luncheon.",
       };
     case "closed":
       return {

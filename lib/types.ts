@@ -5,24 +5,18 @@ export type MembershipStatus =
   | "resigned"
   | "lapsed"
   | "removed";
-export type VenueStatus =
-  | "candidate"
-  | "tasting"
-  | "approved"
-  | "rejected"
-  | "archived";
-export type TastingOutcome = "pending" | "go" | "no_go";
+/**
+ * The venue_status enum still holds the old pipeline values (candidate,
+ * tasting, rejected); migration 00006 moved every venue to one of these two.
+ */
+export type VenueStatus = "approved" | "archived";
 export type LunchStatus = "draft" | "released" | "completed" | "cancelled";
 export type SignupStatus = "confirmed" | "waitlisted" | "cancelled";
-export type WineSource = "cellar" | "restaurant";
-export type LunchCritiqueRole = "food_1" | "food_2" | "wine_1" | "wine_2";
 
 export interface Club {
   id: string;
   name: string;
   slug: string;
-  guests_allowed: boolean;
-  max_guests_per_member: number;
   signup_cutoff_days: number;
   /** Days after signup_opens_at before all members may sign up. */
   committee_priority_days: number;
@@ -51,7 +45,6 @@ export interface Membership {
   /** Committee notes on the membership. */
   comments: string | null;
   role: MemberRole;
-  wine_master: boolean;
   status: MembershipStatus;
   joined_on: string;
   created_at: string;
@@ -69,16 +62,6 @@ export interface Venue {
   created_at: string;
 }
 
-export interface Tasting {
-  id: string;
-  club_id: string;
-  venue_id: string;
-  tasting_date: string | null;
-  feedback: string | null;
-  outcome: TastingOutcome;
-  created_at: string;
-}
-
 export interface Lunch {
   id: string;
   club_id: string;
@@ -92,6 +75,7 @@ export interface Lunch {
   members_open_at: string | null;
   guests_open_at: string | null;
   signup_cutoff_at: string | null;
+  /** Decided per lunch. Null only on a lunch saved before that rule; read as no. */
   guests_allowed: boolean | null;
   max_guests_per_member: number | null;
   notes: string | null;
@@ -114,36 +98,6 @@ export interface Signup {
   cancelled_at: string | null;
 }
 
-export interface Wine {
-  id: string;
-  club_id: string;
-  name: string;
-  vintage: string | null;
-  source: WineSource;
-  notes: string | null;
-  created_at: string;
-}
-
-export interface LunchWine {
-  id: string;
-  club_id: string;
-  lunch_id: string;
-  wine_id: string;
-  pairing_notes: string | null;
-  created_at: string;
-}
-
-export interface LunchRole {
-  id: string;
-  club_id: string;
-  lunch_id: string;
-  role: LunchCritiqueRole;
-  membership_id: string;
-  assigned_by: string | null;
-  assigned_at: string;
-  notified_at: string | null;
-}
-
 /** Row returned by waitlist-promoting SQL functions. */
 export interface PromotedMember {
   membership_id: string;
@@ -151,11 +105,14 @@ export interface PromotedMember {
   full_name: string;
 }
 
-/** Effective guest policy for a lunch (lunch override falls back to club). */
-export function guestPolicy(club: Club, lunch: Lunch) {
+/** Guest policy for a lunch. Each lunch decides; there is no club default. */
+export function guestPolicy(
+  lunch: Pick<Lunch, "guests_allowed" | "max_guests_per_member">
+) {
+  const allowed = lunch.guests_allowed === true;
   return {
-    allowed: lunch.guests_allowed ?? club.guests_allowed,
-    maxPerMember: lunch.max_guests_per_member ?? club.max_guests_per_member,
+    allowed,
+    maxPerMember: allowed ? (lunch.max_guests_per_member ?? 0) : 0,
   };
 }
 

@@ -84,9 +84,6 @@ export default async function MemberDetailPage({
             <Badge variant="secondary" className="capitalize">
               {member.role}
             </Badge>
-            {member.wine_master ? (
-              <Badge tone="info">Wine Master</Badge>
-            ) : null}
           </div>
         </div>
       </div>

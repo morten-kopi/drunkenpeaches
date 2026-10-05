@@ -24,15 +24,7 @@ const STATUS_TONE: Record<string, Tone> = {
   lapsed: "neutral",
   removed: "danger",
   // venues
-  candidate: "neutral",
-  tasting: "warning",
-  approved: "success",
-  rejected: "danger",
   archived: "neutral",
-  // tastings
-  pending: "neutral",
-  go: "success",
-  no_go: "danger",
 };
 
 export function StatusBadge({

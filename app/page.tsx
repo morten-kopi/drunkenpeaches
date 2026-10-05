@@ -15,12 +15,12 @@ const NOTICES = [
   {
     kicker: "The committee",
     title: "The secretary’s desk",
-    body: "Venues from candidate to tasting to table. Dietary notes for the house. Manual overrides when a member telephones.",
+    body: "Venues on file. Dietary notes for the house. Manual overrides when a member telephones.",
   },
   {
-    kicker: "The cellar",
-    title: "Wine, recorded quietly",
-    body: "The Wine Master keeps a short cellar and notes the pairing. Members see none of it until they sit down.",
+    kicker: "Guests",
+    title: "Decided lunch by lunch",
+    body: "The committee decides for each luncheon whether members may bring guests. Guest places open on a set date, after the membership has had first claim.",
   },
 ];
 
@@ -70,7 +70,7 @@ export default async function LandingPage() {
           </h1>
           <div className="club-rule mt-6 max-w-16" />
           <p className="mt-6 max-w-xl text-pretty text-[1.05rem] leading-relaxed text-muted-foreground sm:text-lg">
-            Luncheons, the list, the cellar — recorded for the committee and
+            Luncheons, the list and the venues, recorded for the committee and
             the table. Invitation only. Built for clubs such as Beefsteaks
             &amp; Burgundy.
           </p>

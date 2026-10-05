@@ -18,7 +18,6 @@ export default async function ClubLayout({
         clubName={ctx.club.name}
         memberName={ctx.membership.full_name}
         isCommittee={ctx.isCommittee}
-        isWineMaster={ctx.isWineMaster}
       />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-[calc(5.25rem+env(safe-area-inset-bottom))] pt-6 md:px-6 md:pb-12 md:pt-10">
         {children}

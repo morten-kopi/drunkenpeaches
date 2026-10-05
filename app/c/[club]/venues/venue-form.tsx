@@ -1,8 +1,11 @@
 "use client";
 
-import { useActionState, useRef, useEffect } from "react";
-import { createVenueAction, updateVenueAction } from "@/app/actions/venues";
-import type { FormState } from "@/app/actions/auth";
+import { useActionState, useEffect, useId, useRef } from "react";
+import {
+  createVenueAction,
+  updateVenueAction,
+  type VenueFormState,
+} from "@/app/actions/venues";
 import type { Venue } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,52 +21,67 @@ export function VenueForm({
 }: {
   slug: string;
   venue?: Venue;
-  /** Called after a successful create/update (e.g. to close a dialog). */
-  onSuccess?: () => void;
+  /** Called once after a successful save, with the new venue on create. */
+  onSuccess?: (created?: VenueFormState["venue"]) => void;
 }) {
   const action = venue
     ? updateVenueAction.bind(null, slug, venue.id)
     : createVenueAction.bind(null, slug);
-  const [state, formAction, pending] = useActionState<FormState, FormData>(
+  const [state, formAction, pending] = useActionState<VenueFormState, FormData>(
     action,
     {}
   );
   const formRef = useRef<HTMLFormElement>(null);
   const submitted = useRef(false);
+  // Unique ids: this form also opens inside the lunch form's page.
+  const uid = useId();
 
   useSuccessToast(pending, state.error, venue ? "Venue saved" : "Venue added");
 
   useEffect(() => {
-    if (submitted.current && !pending && !state.error) {
-      if (!venue) formRef.current?.reset();
-      onSuccess?.();
+    if (pending) {
+      submitted.current = true;
+      return;
     }
-    if (pending) submitted.current = true;
+    if (!submitted.current) return;
+    submitted.current = false;
+    if (state.error) return;
+    if (!venue) formRef.current?.reset();
+    onSuccess?.(state.venue);
   }, [pending, state, venue, onSuccess]);
 
   return (
     <form ref={formRef} action={formAction} className="max-w-xl space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="name">Restaurant name</Label>
-        <Input id="name" name="name" defaultValue={venue?.name ?? ""} required />
+        <Label htmlFor={`${uid}-name`}>Restaurant name</Label>
+        <Input
+          id={`${uid}-name`}
+          name="name"
+          defaultValue={venue?.name ?? ""}
+          required
+        />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="address">Address</Label>
-        <Input id="address" name="address" defaultValue={venue?.address ?? ""} />
+        <Label htmlFor={`${uid}-address`}>Address</Label>
+        <Input
+          id={`${uid}-address`}
+          name="address"
+          defaultValue={venue?.address ?? ""}
+        />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="contact">Contact (name / phone)</Label>
+          <Label htmlFor={`${uid}-contact`}>Contact (name / phone)</Label>
           <Input
-            id="contact"
+            id={`${uid}-contact`}
             name="contact"
             defaultValue={venue?.contact ?? ""}
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="defaultCapacity">Private room capacity</Label>
+          <Label htmlFor={`${uid}-capacity`}>Private room capacity</Label>
           <Input
-            id="defaultCapacity"
+            id={`${uid}-capacity`}
             name="defaultCapacity"
             type="number"
             min={1}
@@ -72,22 +90,18 @@ export function VenueForm({
         </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="notes">Notes</Label>
+        <Label htmlFor={`${uid}-notes`}>Notes</Label>
         <Textarea
-          id="notes"
+          id={`${uid}-notes`}
           name="notes"
           rows={3}
           defaultValue={venue?.notes ?? ""}
-          placeholder="Why it's a candidate, price point, private room details…"
+          placeholder="Add venue notes…"
         />
       </div>
       <FormError message={state.error} />
-      <Button
-        type="submit"
-        loading={pending}
-        variant={venue ? "default" : "outline"}
-      >
-        {venue ? "Save venue" : "Add candidate venue"}
+      <Button type="submit" loading={pending}>
+        {venue ? "Save venue" : "Add venue"}
       </Button>
     </form>
   );

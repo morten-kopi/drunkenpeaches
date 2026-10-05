@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { WineIcon } from "lucide-react";
 import { getClubContext } from "@/lib/club-context";
 import { createClient } from "@/lib/supabase/server";
 import { initials } from "@/lib/format";
@@ -53,15 +52,7 @@ export default async function MembersPage({
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{m.full_name || "—"}</span>
-              {m.wine_master ? (
-                <WineIcon
-                  className="size-3.5 text-gold"
-                  aria-label="Wine Master"
-                />
-              ) : null}
-            </div>
+            <p className="font-medium">{m.full_name || "—"}</p>
             {m.function ? (
               <p className="text-xs text-muted-foreground">{m.function}</p>
             ) : null}

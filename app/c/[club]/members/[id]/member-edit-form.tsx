@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -170,17 +169,6 @@ export function MemberEditForm({
             </Select>
           </div>
         </div>
-
-        {role === "committee" ? (
-          <label className="flex items-center gap-3 text-sm">
-            <Switch
-              name="wineMaster"
-              value="on"
-              defaultChecked={member.wine_master}
-            />
-            <span>Wine Master — keeps the cellar and pairing notes</span>
-          </label>
-        ) : null}
 
         <div className="space-y-2">
           <Label htmlFor="comments">Comments</Label>

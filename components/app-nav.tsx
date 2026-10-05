@@ -11,7 +11,6 @@ import {
   UserIcon,
   UsersIcon,
   UtensilsIcon,
-  WineIcon,
   EllipsisIcon,
   XIcon,
 } from "lucide-react";
@@ -35,7 +34,6 @@ interface AppNavProps {
   clubName: string;
   memberName: string;
   isCommittee: boolean;
-  isWineMaster: boolean;
 }
 
 export function AppNav({
@@ -43,7 +41,6 @@ export function AppNav({
   clubName,
   memberName,
   isCommittee,
-  isWineMaster,
 }: AppNavProps) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -60,9 +57,6 @@ export function AppNav({
     ...(isCommittee
       ? [{ href: `${base}/venues`, label: "Venues", icon: UtensilsIcon }]
       : []),
-    ...(isCommittee || isWineMaster
-      ? [{ href: `${base}/wine`, label: "Cellar", icon: WineIcon }]
-      : []),
     ...(isCommittee
       ? [{ href: `${base}/settings`, label: "Settings", icon: SettingsIcon }]
       : []),
@@ -77,11 +71,7 @@ export function AppNav({
   const isActive = (href: string) => pathname.startsWith(href);
   const moreActive = moreLinks.some((l) => isActive(l.href));
 
-  const roleLabel = isWineMaster
-    ? "Committee · Wine Master"
-    : isCommittee
-      ? "Committee"
-      : "Member";
+  const roleLabel = isCommittee ? "Committee" : "Member";
 
   const submitSignout = () => signoutRef.current?.requestSubmit();
 

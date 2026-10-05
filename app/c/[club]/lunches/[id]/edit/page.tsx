@@ -29,11 +29,14 @@ export default async function EditLunchPage({
       .from("venues")
       .select("id, name, status, default_capacity")
       .eq("club_id", ctx.club.id)
-      .neq("status", "archived")
-      .neq("status", "rejected")
       .order("name"),
   ]);
   if (!lunch) notFound();
+  // Archived venues stay out of the picker, except the one this lunch uses.
+  const venueOptions = ((venues ?? []) as Pick<
+    Venue,
+    "id" | "name" | "status" | "default_capacity"
+  >[]).filter((v) => v.status !== "archived" || v.id === lunch.venue_id);
 
   return (
     <div className="space-y-8">
@@ -46,7 +49,7 @@ export default async function EditLunchPage({
         slug={slug}
         club={ctx.club}
         lunch={lunch as Lunch}
-        venues={(venues ?? []) as Pick<Venue, "id" | "name" | "status" | "default_capacity">[]}
+        venues={venueOptions}
       />
     </div>
   );

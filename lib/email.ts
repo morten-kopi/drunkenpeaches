@@ -211,32 +211,3 @@ export async function sendLunchChanged(opts: {
     )
   );
 }
-
-export async function sendCritiqueRoleAssigned(opts: {
-  to: string;
-  name: string;
-  clubName: string;
-  lunchTitle: string;
-  lunchDate: string;
-  venueName?: string | null;
-  roleLabel: string;
-  duty: string;
-  lunchUrl: string;
-}) {
-  const where = opts.venueName ? ` at ${opts.venueName}` : "";
-  await send(
-    opts.to,
-    `You are ${opts.roleLabel} for ${opts.lunchTitle}`,
-    layout(
-      `You are ${opts.roleLabel}`,
-      `<p>Dear ${opts.name || "member"},</p>
-       <p>You have been assigned <strong>${opts.roleLabel}</strong> for <strong>${opts.lunchTitle}</strong> on <strong>${fmtDate(opts.lunchDate)}</strong>${where}.</p>
-       <p>${opts.duty}</p>
-       <p style="margin: 24px 0;">
-         <a href="${opts.lunchUrl}" style="background: #1c1917; color: #fafaf9; padding: 12px 24px; text-decoration: none; border-radius: 6px;">Open the luncheon</a>
-       </p>
-       <p style="font-size: 13px; color: #78716c;">If the button doesn't work, paste this link into your browser:<br/>${opts.lunchUrl}</p>`,
-      opts.clubName
-    )
-  );
-}

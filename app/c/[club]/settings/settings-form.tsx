@@ -1,13 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { updateClubSettingsAction } from "@/app/actions/settings";
 import type { FormState } from "@/app/actions/auth";
 import type { Club } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormError } from "@/components/form-error";
 import { useSuccessToast } from "@/lib/use-success-toast";
@@ -17,7 +16,6 @@ export function SettingsForm({ slug, club }: { slug: string; club: Club }) {
     updateClubSettingsAction.bind(null, slug),
     {}
   );
-  const [guestsAllowed, setGuestsAllowed] = useState(club.guests_allowed);
 
   useSuccessToast(pending, state.error, "Settings saved");
 
@@ -107,8 +105,8 @@ export function SettingsForm({ slug, club }: { slug: string; club: Club }) {
               className="w-24"
             />
             <p className="text-xs text-muted-foreground">
-              After the members window, guests may be added (if the club or
-              lunch allows them) until the cutoff below.
+              After the members window, guests may be added until the cutoff
+              below, on lunches that allow them. Each lunch decides.
             </p>
           </div>
           <div className="space-y-2">
@@ -133,50 +131,6 @@ export function SettingsForm({ slug, club }: { slug: string; club: Club }) {
               cutoff {club.signup_cutoff_days}d before the table sits.
             </p>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Guests</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <Label htmlFor="guestsAllowed">Guests allowed</Label>
-              <p className="text-xs text-muted-foreground">
-                Members may bring guests — guests consume seats from the same
-                fixed capacity.
-              </p>
-            </div>
-            <Switch
-              id="guestsAllowed"
-              name="guestsAllowed"
-              value="on"
-              checked={guestsAllowed}
-              onCheckedChange={setGuestsAllowed}
-            />
-          </div>
-          {guestsAllowed ? (
-            <div className="space-y-2 duration-(--duration-default) ease-(--ease-out-quint) animate-in fade-in-0 slide-in-from-top-1">
-              <Label htmlFor="maxGuests">Max guests per member</Label>
-              <Input
-                id="maxGuests"
-                name="maxGuests"
-                type="number"
-                min={0}
-                max={10}
-                defaultValue={club.max_guests_per_member}
-                className="w-24"
-              />
-            </div>
-          ) : (
-            <input
-              type="hidden"
-              name="maxGuests"
-              value={club.max_guests_per_member}
-            />
-          )}
         </CardContent>
       </Card>
 

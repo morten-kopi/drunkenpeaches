@@ -1,6 +1,6 @@
 # Drunken Peaches
 
-The members' book for private dining clubs — luncheons, the list, the cellar.
+The members' book for private dining clubs: luncheons, the list, the venues.
 Built to replace WildApricot for clubs such as **Beefsteaks & Burgundy**.
 See [docs/vision.md](docs/vision.md) and [docs/architecture.md](docs/architecture.md).
 
@@ -60,9 +60,10 @@ Singapore) that emails confirmed attendees ~2 days before a lunch.
 
 1. Visit `/signup` → create your club. You become its first committee admin.
 2. **Members** → invite the roster (they get a Resend email to set a password).
-3. **Venues** → build the pipeline: candidate → committee tasting → approved.
+3. **Venues** → add the restaurants you book (or create one from the lunch form).
 4. **New lunch** → book the restaurant first; capacity X comes from that
-   booking. Lunches start as **drafts** — release when ready.
+   booking. Decide whether guests are allowed. Lunches start as **drafts**;
+   release when ready.
 5. Members sign up first-come-first-served; beyond X they're waitlisted and
    auto-promoted (with email) when seats free up.
 
@@ -82,7 +83,7 @@ There is no local database — the app talks to your Supabase project.
 supabase/migrations/   schema, RLS policies, business-logic functions
 lib/supabase/          browser / server / admin clients + middleware session
 lib/email.ts           all v1 notification emails (Resend)
-app/actions/           server actions (auth, members, lunches, venues, wine, settings)
-app/c/[club]/          the club-scoped app (dashboard, lunches, members, venues, wine…)
+app/actions/           server actions (auth, members, lunches, venues, settings)
+app/c/[club]/          the club-scoped app (dashboard, lunches, members, venues…)
 app/api/cron/          daily lunch-reminder cron
 ```
