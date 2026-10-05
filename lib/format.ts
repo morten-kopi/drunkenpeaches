@@ -1,4 +1,5 @@
 import { format, parseISO } from "date-fns";
+import { tz } from "@date-fns/tz";
 
 export function fmtDate(date: string) {
   return format(parseISO(date), "EEEE d MMMM yyyy");
@@ -12,8 +13,29 @@ export function fmtTime(time: string) {
   return time.slice(0, 5);
 }
 
-export function fmtDateTime(iso: string) {
-  return format(new Date(iso), "EEE d MMM yyyy, HH:mm");
+/** A timestamp shown on the club's clock, whatever zone the code runs in. */
+export function fmtDateTime(iso: string, timeZone: string) {
+  return format(new Date(iso), "EEE d MMM yyyy, HH:mm", { in: tz(timeZone) });
+}
+
+/** Calendar date (YYYY-MM-DD) of an instant in the club's zone. */
+export function dateInZone(instant: string | Date, timeZone: string) {
+  return format(new Date(instant), "yyyy-MM-dd", { in: tz(timeZone) });
+}
+
+/** Today's date (YYYY-MM-DD) in the club's zone. */
+export function todayInZone(timeZone: string, now: Date = new Date()) {
+  return dateInZone(now, timeZone);
+}
+
+/** Canonical spelling of an IANA zone name, or null if it isn't one. */
+export function canonicalTimeZone(timeZone: string): string | null {
+  try {
+    return new Intl.DateTimeFormat("en", { timeZone }).resolvedOptions()
+      .timeZone;
+  } catch {
+    return null;
+  }
 }
 
 /** Up to two uppercase initials from a name, for avatar fallbacks. */

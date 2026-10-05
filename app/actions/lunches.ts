@@ -30,6 +30,7 @@ import {
   memberSignupBlockReason,
   validatePhaseOrder,
 } from "@/lib/signup-phases";
+import { todayInZone } from "@/lib/format";
 import type { Club, Lunch, PromotedMember } from "@/lib/types";
 
 // ---------- helpers ----------------------------------------------------------
@@ -91,11 +92,12 @@ const lunchSchema = z.object({
 
 function parseOptionalIso(
   raw: string | undefined,
-  label: string
+  label: string,
+  timeZone: string
 ): { ok: true; value: string | null } | { ok: false; error: string } {
   const s = (raw ?? "").trim();
   if (!s) return { ok: true, value: null };
-  const iso = fromDatetimeLocalValue(s);
+  const iso = fromDatetimeLocalValue(s, timeZone);
   if (!iso) return { ok: false, error: `Invalid ${label}` };
   return { ok: true, value: iso };
 }
@@ -118,13 +120,13 @@ function parseLunchForm(formData: FormData, club: Club) {
   if (!parsed.success) return { error: parsed.error.issues[0].message } as const;
   const d = parsed.data;
 
-  const opens = parseOptionalIso(d.signupOpensAt, "sign-up open time");
+  const opens = parseOptionalIso(d.signupOpensAt, "sign-up open time", club.timezone);
   if (!opens.ok) return { error: opens.error };
-  const members = parseOptionalIso(d.membersOpenAt, "members-open time");
+  const members = parseOptionalIso(d.membersOpenAt, "members-open time", club.timezone);
   if (!members.ok) return { error: members.error };
-  const guests = parseOptionalIso(d.guestsOpenAt, "guests-open time");
+  const guests = parseOptionalIso(d.guestsOpenAt, "guests-open time", club.timezone);
   if (!guests.ok) return { error: guests.error };
-  const cutoff = parseOptionalIso(d.cutoffAt, "sign-up cutoff");
+  const cutoff = parseOptionalIso(d.cutoffAt, "sign-up cutoff", club.timezone);
   if (!cutoff.ok) return { error: cutoff.error };
 
   const phases = fillMissingPhaseTimestamps(
@@ -161,7 +163,7 @@ function parseLunchForm(formData: FormData, club: Club) {
 }
 
 async function loadUpcomingReleased(ctx: Ctx) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInZone(ctx.club.timezone);
   const { data } = await ctx.supabase
     .from("lunches")
     .select("*")
@@ -431,7 +433,7 @@ export async function signUpAction(
         await ctx.supabase.from("lunches").select("*").eq("id", lunchId).single()
       ).data as Lunch | null);
     if (!lunchRow) return { error: "Lunch not found" };
-    const nextOpen = findNextOpenLunch(upcoming);
+    const nextOpen = findNextOpenLunch(upcoming, ctx.club.timezone);
     const blocked = memberSignupBlockReason({
       lunch: lunchRow,
       club: ctx.club,

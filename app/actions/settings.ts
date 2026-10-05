@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireCommittee, errorMessage } from "@/lib/action-helpers";
+import { canonicalTimeZone } from "@/lib/format";
 import type { FormState } from "./auth";
 
 const settingsSchema = z.object({
@@ -13,6 +14,20 @@ const settingsSchema = z.object({
   committeePriorityDays: z.coerce.number().int().min(0).max(60),
   membersOnlyDays: z.coerce.number().int().min(0).max(90),
   guestsPhaseDays: z.coerce.number().int().min(0).max(90),
+  timezone: z
+    .string()
+    .trim()
+    .transform((tz, ctx) => {
+      const canonical = canonicalTimeZone(tz);
+      if (!canonical) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Unknown time zone. Use a name like Asia/Singapore.",
+        });
+        return z.NEVER;
+      }
+      return canonical;
+    }),
 });
 
 export async function updateClubSettingsAction(
@@ -30,6 +45,7 @@ export async function updateClubSettingsAction(
       committeePriorityDays: formData.get("committeePriorityDays"),
       membersOnlyDays: formData.get("membersOnlyDays"),
       guestsPhaseDays: formData.get("guestsPhaseDays"),
+      timezone: formData.get("timezone"),
     });
     if (!parsed.success) return { error: parsed.error.issues[0].message };
     const d = parsed.data;
@@ -46,6 +62,15 @@ export async function updateClubSettingsAction(
       })
       .eq("id", ctx.club.id);
     if (error) return { error: error.message };
+
+    // Through the RPC so upcoming lunches keep their local window times.
+    if (d.timezone !== ctx.club.timezone) {
+      const { error: tzError } = await ctx.supabase.rpc("set_club_timezone", {
+        p_club: ctx.club.id,
+        p_timezone: d.timezone,
+      });
+      if (tzError) return { error: tzError.message };
+    }
   } catch (e) {
     return { error: errorMessage(e) };
   }

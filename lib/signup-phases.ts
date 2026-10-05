@@ -1,4 +1,6 @@
-import { fmtDateShort, fmtDateTime } from "@/lib/format";
+import { addDays, format } from "date-fns";
+import { TZDate, tz } from "@date-fns/tz";
+import { dateInZone, fmtDateShort, fmtDateTime, todayInZone } from "@/lib/format";
 import { guestPolicy, type Club, type Lunch } from "@/lib/types";
 
 /** Club-level default durations used to compute per-lunch phase timestamps. */
@@ -8,6 +10,7 @@ export type PhaseDurations = Pick<
   | "members_only_days"
   | "guests_phase_days"
   | "signup_cutoff_days"
+  | "timezone"
 >;
 
 export type PhaseTimestamps = {
@@ -43,32 +46,47 @@ export type SignupPhase =
   | "guests"
   | "closed";
 
-/** Lunch start, interpreted as UTC — matches existing cutoff-on-release logic. */
-export function lunchStartUtc(lunchDate: string, startTime: string): Date {
-  const time = (startTime || "12:30").slice(0, 8);
-  const normalized = time.length === 5 ? `${time}:00` : time;
-  return new Date(`${lunchDate}T${normalized}Z`);
+/** Lunch start as an instant. Date and time are wall-clock in the club's zone. */
+export function lunchStartAt(
+  lunchDate: string,
+  startTime: string,
+  timeZone: string
+): Date {
+  const [y, m, d] = lunchDate.split("-").map(Number);
+  const [hh, mm] = (startTime || "12:30").split(":").map(Number);
+  return new Date(new TZDate(y, m - 1, d, hh, mm, timeZone).getTime());
 }
 
-export function addUtcDays(date: Date | string, days: number): Date {
-  const d = new Date(typeof date === "string" ? date : date.getTime());
-  d.setUTCDate(d.getUTCDate() + days);
-  return d;
+/** Add calendar days on the club's clock, keeping local time across DST changes. */
+export function addClubDays(
+  date: Date | string,
+  days: number,
+  timeZone: string
+): Date {
+  return new Date(addDays(new Date(date), days, { in: tz(timeZone) }).getTime());
 }
 
-export function toDatetimeLocalValue(iso: string | null | undefined): string {
+/** "YYYY-MM-DDTHH:mm" on the club's clock, for datetime-local inputs. */
+export function toDatetimeLocalValue(
+  iso: string | null | undefined,
+  timeZone: string
+): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString().slice(0, 16);
+  return format(d, "yyyy-MM-dd'T'HH:mm", { in: tz(timeZone) });
 }
 
-export function fromDatetimeLocalValue(raw: string): string | null {
-  const s = raw.trim();
-  if (!s) return null;
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
+/** Read a datetime-local value on the club's clock, not the browser's or server's. */
+export function fromDatetimeLocalValue(
+  raw: string,
+  timeZone: string
+): string | null {
+  const match = raw.trim().match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!match) return null;
+  const [, y, mo, d, hh, mm] = match.map(Number);
+  const instant = new TZDate(y, mo - 1, d, hh, mm, timeZone).getTime();
+  return Number.isNaN(instant) ? null : new Date(instant).toISOString();
 }
 
 /**
@@ -87,19 +105,20 @@ export function computePhaseTimestamps(opts: {
   signupOpensAt?: string | null;
   cutoffAt?: string | null;
 }): PhaseTimestamps {
-  const start = lunchStartUtc(opts.lunchDate, opts.startTime);
+  const timeZone = opts.club.timezone ?? "UTC";
+  const start = lunchStartAt(opts.lunchDate, opts.startTime, timeZone);
   const committeeDays = opts.club.committee_priority_days ?? 2;
   const membersDays = opts.club.members_only_days ?? 14;
   const guestsDays = opts.club.guests_phase_days ?? 14;
   const cutoffDays = opts.club.signup_cutoff_days ?? 2;
   const cutoff = opts.cutoffAt
     ? new Date(opts.cutoffAt)
-    : addUtcDays(start, -cutoffDays);
+    : addClubDays(start, -cutoffDays, timeZone);
 
   if (opts.signupOpensAt) {
     const opens = new Date(opts.signupOpensAt);
-    const members = addUtcDays(opens, committeeDays);
-    const guests = addUtcDays(members, membersDays);
+    const members = addClubDays(opens, committeeDays, timeZone);
+    const guests = addClubDays(members, membersDays, timeZone);
     return {
       signup_opens_at: opens.toISOString(),
       members_open_at: members.toISOString(),
@@ -108,9 +127,9 @@ export function computePhaseTimestamps(opts: {
     };
   }
 
-  const guests = addUtcDays(cutoff, -guestsDays);
-  const members = addUtcDays(guests, -membersDays);
-  const opens = addUtcDays(members, -committeeDays);
+  const guests = addClubDays(cutoff, -guestsDays, timeZone);
+  const members = addClubDays(guests, -membersDays, timeZone);
+  const opens = addClubDays(members, -committeeDays, timeZone);
   return {
     signup_opens_at: opens.toISOString(),
     members_open_at: members.toISOString(),
@@ -189,9 +208,10 @@ export function resolveSignupPhase(
 
 export function isUpcomingLunch(
   lunch: Pick<Lunch, "lunch_date">,
+  timeZone: string,
   now: Date = new Date()
 ): boolean {
-  return lunch.lunch_date >= now.toISOString().slice(0, 10);
+  return lunch.lunch_date >= todayInZone(timeZone, now);
 }
 
 /** Opened for signup and not yet at cutoff (committee-priority counts as open). */
@@ -223,6 +243,7 @@ export function compareLunchStart(
 /** Soonest upcoming released lunch that has opened and not yet hit cutoff. */
 export function findNextOpenLunch<T extends LunchPhaseFields>(
   lunches: T[],
+  timeZone: string,
   now: Date = new Date()
 ): T | null {
   return (
@@ -230,7 +251,7 @@ export function findNextOpenLunch<T extends LunchPhaseFields>(
       .filter(
         (l) =>
           l.status === "released" &&
-          isUpcomingLunch(l, now) &&
+          isUpcomingLunch(l, timeZone, now) &&
           isInOpenSignupWindow(l, now)
       )
       .sort(compareLunchStart)[0] ?? null
@@ -306,7 +327,7 @@ export function memberSignupBlockReason(opts: {
 
   if (phase === "not_open") {
     return opts.lunch.signup_opens_at
-      ? `Sign-ups open ${fmtDateTime(opts.lunch.signup_opens_at)}`
+      ? `Sign-ups open ${fmtDateTime(opts.lunch.signup_opens_at, opts.club.timezone)}`
       : "Sign-ups are not yet open for this lunch";
   }
 
@@ -316,14 +337,14 @@ export function memberSignupBlockReason(opts: {
 
   if (phase === "committee") {
     return opts.lunch.members_open_at
-      ? `Committee priority until ${fmtDateTime(opts.lunch.members_open_at)}`
+      ? `Committee priority until ${fmtDateTime(opts.lunch.members_open_at, opts.club.timezone)}`
       : "Committee priority is in effect";
   }
 
   if (guestCount > 0) {
     if (phase === "members") {
       return opts.lunch.guests_open_at
-        ? `Guests may be added from ${fmtDateTime(opts.lunch.guests_open_at)}`
+        ? `Guests may be added from ${fmtDateTime(opts.lunch.guests_open_at, opts.club.timezone)}`
         : "Guests may not be added yet";
     }
     if (!guestPolicy(opts.club, opts.lunch).allowed) {
@@ -369,7 +390,7 @@ export function guestEditBlockReason(opts: {
     !guestsAllowedNow(opts.club, opts.lunch, now)
   ) {
     return opts.lunch.guests_open_at
-      ? `Guests may be added from ${fmtDateTime(opts.lunch.guests_open_at)}`
+      ? `Guests may be added from ${fmtDateTime(opts.lunch.guests_open_at, opts.club.timezone)}`
       : "Guests may not be added yet";
   }
 
@@ -379,17 +400,18 @@ export function guestEditBlockReason(opts: {
 /** Short label for list/dashboard cards. */
 export function lunchCardPhaseLabel(
   lunch: Lunch,
+  timeZone: string,
   opts?: { guestsAllowed?: boolean; isNextOpen?: boolean }
 ): string | null {
   const phase = resolveSignupPhase(lunch);
   switch (phase) {
     case "not_open":
       return lunch.signup_opens_at
-        ? `Opens ${fmtDateShort(lunch.signup_opens_at.slice(0, 10))}`
+        ? `Opens ${fmtDateShort(dateInZone(lunch.signup_opens_at, timeZone))}`
         : "Sign-ups not yet open";
     case "committee":
       return lunch.members_open_at
-        ? `Committee priority until ${fmtDateShort(lunch.members_open_at.slice(0, 10))}`
+        ? `Committee priority until ${fmtDateShort(dateInZone(lunch.members_open_at, timeZone))}`
         : "Committee priority";
     case "members":
       return opts?.isNextOpen
@@ -409,7 +431,11 @@ export function lunchCardPhaseLabel(
   }
 }
 
-export function signupWindowCopy(lunch: Lunch, phase: SignupPhase): {
+export function signupWindowCopy(
+  lunch: Lunch,
+  phase: SignupPhase,
+  timeZone: string
+): {
   title: string;
   detail: string;
 } | null {
@@ -418,35 +444,35 @@ export function signupWindowCopy(lunch: Lunch, phase: SignupPhase): {
       return {
         title: "The list is not yet open",
         detail: lunch.signup_opens_at
-          ? `Sign-ups open ${fmtDateTime(lunch.signup_opens_at)}.`
+          ? `Sign-ups open ${fmtDateTime(lunch.signup_opens_at, timeZone)}.`
           : "The committee has not opened sign-ups for this luncheon.",
       };
     case "committee":
       return {
         title: "Committee priority",
         detail: lunch.members_open_at
-          ? `Committee members may add their names first. The list opens to the membership on ${fmtDateTime(lunch.members_open_at)}.`
+          ? `Committee members may add their names first. The list opens to the membership on ${fmtDateTime(lunch.members_open_at, timeZone)}.`
           : "Committee members may add their names first.",
       };
     case "members":
       return {
         title: "Open to members",
         detail: lunch.guests_open_at
-          ? `You may add your name. Guests from ${fmtDateTime(lunch.guests_open_at)}.`
+          ? `You may add your name. Guests from ${fmtDateTime(lunch.guests_open_at, timeZone)}.`
           : "You may add your name. Guests are not yet permitted.",
       };
     case "guests":
       return {
         title: "Open, guests permitted",
         detail: lunch.signup_cutoff_at
-          ? `The list closes ${fmtDateTime(lunch.signup_cutoff_at)}.`
+          ? `The list closes ${fmtDateTime(lunch.signup_cutoff_at, timeZone)}.`
           : "Add guests if the table allows it.",
       };
     case "closed":
       return {
         title: "The list is closed",
         detail: lunch.signup_cutoff_at
-          ? `Closed ${fmtDateTime(lunch.signup_cutoff_at)}.`
+          ? `Closed ${fmtDateTime(lunch.signup_cutoff_at, timeZone)}.`
           : "Write to the committee if you still wish to attend.",
       };
     default:

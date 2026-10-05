@@ -15,6 +15,7 @@ import {
   findNextOpenLunch,
   lunchCardPhaseLabel,
 } from "@/lib/signup-phases";
+import { todayInZone } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -40,7 +41,7 @@ export default async function LunchesPage({
   const { error } = await searchParams;
   const ctx = await getClubContext(slug);
   const supabase = await createClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInZone(ctx.club.timezone);
 
   const [{ data: lunchData }, { data: signupData }, { data: roleData }] =
     await Promise.all([
@@ -74,7 +75,7 @@ export default async function LunchesPage({
   const past = lunches.filter(
     (l) => l.lunch_date < today || l.status === "cancelled"
   );
-  const nextOpen = findNextOpenLunch(lunches);
+  const nextOpen = findNextOpenLunch(lunches, ctx.club.timezone);
 
   function card(l: LunchRow) {
     const ls = signups.filter((s) => s.lunch_id === l.id);
@@ -100,7 +101,7 @@ export default async function LunchesPage({
         }
         phaseLabel={
           l.status === "released"
-            ? lunchCardPhaseLabel(l, {
+            ? lunchCardPhaseLabel(l, ctx.club.timezone, {
                 guestsAllowed: guestPolicy(ctx.club, l).allowed,
                 isNextOpen: nextOpen?.id === l.id,
               })

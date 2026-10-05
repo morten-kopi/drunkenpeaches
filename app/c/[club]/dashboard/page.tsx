@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { getClubContext } from "@/lib/club-context";
 import { createClient } from "@/lib/supabase/server";
-import { fmtDate, fmtTime } from "@/lib/format";
+import { fmtDate, fmtTime, todayInZone } from "@/lib/format";
 import {
   guestPolicy,
   seatsTaken,
@@ -52,7 +52,7 @@ export default async function DashboardPage({
   const { club: slug } = await params;
   const ctx = await getClubContext(slug);
   const supabase = await createClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInZone(ctx.club.timezone);
 
   const { data: upcoming } = await supabase
     .from("lunches")
@@ -115,8 +115,8 @@ export default async function DashboardPage({
       )
     : undefined;
   const nextPhase = next ? resolveSignupPhase(next) : null;
-  const nextCopy = next && nextPhase ? signupWindowCopy(next, nextPhase) : null;
-  const nextOpen = findNextOpenLunch(lunches);
+  const nextCopy = next && nextPhase ? signupWindowCopy(next, nextPhase, ctx.club.timezone) : null;
+  const nextOpen = findNextOpenLunch(lunches, ctx.club.timezone);
   const heroCta = (() => {
     if (!next) return "Consult the luncheon";
     if (mySignup) return "View my place";
@@ -290,7 +290,7 @@ export default async function DashboardPage({
                   }
                   phaseLabel={
                     l.status === "released"
-                      ? lunchCardPhaseLabel(l, {
+                      ? lunchCardPhaseLabel(l, ctx.club.timezone, {
                           guestsAllowed: guestPolicy(ctx.club, l).allowed,
                           isNextOpen: nextOpen?.id === l.id,
                         })

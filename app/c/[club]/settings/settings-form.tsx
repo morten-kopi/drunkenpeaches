@@ -38,6 +38,21 @@ export function SettingsForm({ slug, club }: { slug: string; club: Club }) {
               /c/{club.slug}
             </div>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="timezone">Time zone</Label>
+            <Input
+              id="timezone"
+              name="timezone"
+              defaultValue={club.timezone}
+              required
+              className="w-64"
+            />
+            <p className="text-xs text-muted-foreground">
+              Lunch times and sign-up windows follow this clock, for example
+              Asia/Singapore. Changing it keeps each upcoming lunch&apos;s
+              windows at the same local times.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
