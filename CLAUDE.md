@@ -6,6 +6,10 @@ This repo is the main line: PRs target `master` on `morten-kopi/drunkenpeaches`.
 
 Architecture, data model and access rules are in `docs/architecture.md`. Read it before changing the schema or the sign-up logic.
 
+## Git
+
+- Every push to `master` deploys to production. Work on a branch and merge through a PR; never commit or push to `master` directly.
+
 ## Commands
 
 - `npm run dev`, `npm run build`, `npm run lint`.
