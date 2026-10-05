@@ -10,7 +10,13 @@ import {
 } from "lucide-react";
 import { getClubContext } from "@/lib/club-context";
 import { createClient } from "@/lib/supabase/server";
-import { fmtDate, fmtTime, fmtDateTime, initials } from "@/lib/format";
+import {
+  fmtDate,
+  fmtTime,
+  fmtDateTime,
+  initials,
+  todayInZone,
+} from "@/lib/format";
 import {
   guestPolicy,
   seatsTaken,
@@ -117,9 +123,9 @@ export default async function LunchDetailPage({
   const now = new Date();
   const phase = resolveSignupPhase(lunch, now);
   const cutoffPassed = phase === "closed";
-  const windowCopy = signupWindowCopy(lunch, phase);
+  const windowCopy = signupWindowCopy(lunch, phase, ctx.club.timezone);
 
-  const today = now.toISOString().slice(0, 10);
+  const today = todayInZone(ctx.club.timezone, now);
   const { data: upcomingData } = await supabase
     .from("lunches")
     .select("*")
@@ -128,7 +134,11 @@ export default async function LunchDetailPage({
     .gte("lunch_date", today)
     .order("lunch_date")
     .order("start_time");
-  const nextOpen = findNextOpenLunch((upcomingData ?? []) as Lunch[], now);
+  const nextOpen = findNextOpenLunch(
+    (upcomingData ?? []) as Lunch[],
+    ctx.club.timezone,
+    now
+  );
   const isNextOpenLunch = nextOpen?.id === lunch.id;
   const mySignup =
     signups.find(
@@ -225,7 +235,7 @@ export default async function LunchDetailPage({
               <p className="flex items-center gap-2">
                 <LockIcon className="size-4 shrink-0" />
                 The list {cutoffPassed ? "closed on" : "closes at"}{" "}
-                {fmtDateTime(lunch.signup_cutoff_at)}
+                {fmtDateTime(lunch.signup_cutoff_at, ctx.club.timezone)}
               </p>
             ) : null}
             {lunch.status === "released" &&
@@ -235,16 +245,16 @@ export default async function LunchDetailPage({
               <p className="text-xs text-muted-foreground">
                 {[
                   lunch.signup_opens_at
-                    ? `Opens ${fmtDateTime(lunch.signup_opens_at)}`
+                    ? `Opens ${fmtDateTime(lunch.signup_opens_at, ctx.club.timezone)}`
                     : null,
                   lunch.members_open_at
-                    ? `Members ${fmtDateTime(lunch.members_open_at)}`
+                    ? `Members ${fmtDateTime(lunch.members_open_at, ctx.club.timezone)}`
                     : null,
                   lunch.guests_open_at
-                    ? `Guests ${fmtDateTime(lunch.guests_open_at)}`
+                    ? `Guests ${fmtDateTime(lunch.guests_open_at, ctx.club.timezone)}`
                     : null,
                   lunch.signup_cutoff_at
-                    ? `Cutoff ${fmtDateTime(lunch.signup_cutoff_at)}`
+                    ? `Cutoff ${fmtDateTime(lunch.signup_cutoff_at, ctx.club.timezone)}`
                     : null,
                 ]
                   .filter(Boolean)

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { errorMessage } from "@/lib/action-helpers";
 import { sendPasswordResetEmail } from "@/lib/email";
-import { slugify } from "@/lib/format";
+import { canonicalTimeZone, slugify } from "@/lib/format";
 
 export type FormState = { error?: string; success?: boolean };
 
@@ -75,7 +75,12 @@ export async function createClubAction(
     // 3. Club + first committee membership.
     const { data: club, error: clubErr } = await admin
       .from("clubs")
-      .insert({ name: clubName, slug })
+      .insert({
+        name: clubName,
+        slug,
+        timezone:
+          canonicalTimeZone(String(formData.get("timezone") ?? "")) ?? "UTC",
+      })
       .select()
       .single();
     if (clubErr) {

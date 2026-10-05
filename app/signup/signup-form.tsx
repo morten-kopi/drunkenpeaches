@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { createClubAction, type FormState } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,9 +12,18 @@ export function SignupForm() {
     createClubAction,
     {}
   );
+  // The creator's browser zone becomes the club's default time zone.
+  const timezoneRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (timezoneRef.current) {
+      timezoneRef.current.value =
+        Intl.DateTimeFormat().resolvedOptions().timeZone;
+    }
+  }, []);
 
   return (
     <form action={formAction} className="space-y-4">
+      <input ref={timezoneRef} type="hidden" name="timezone" defaultValue="UTC" />
       <div className="space-y-2">
         <Label htmlFor="clubName">Chapter name</Label>
         <Input

@@ -30,6 +30,8 @@ export interface Club {
   members_only_days: number;
   /** Days after guests_open_at until the existing signup cutoff. */
   guests_phase_days: number;
+  /** IANA zone that lunch dates, start times and windows are read in. */
+  timezone: string;
   created_at: string;
 }
 

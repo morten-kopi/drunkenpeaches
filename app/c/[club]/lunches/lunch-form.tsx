@@ -10,6 +10,7 @@ import {
 import type { Club, Lunch, Venue } from "@/lib/types";
 import {
   computePhaseTimestamps,
+  fromDatetimeLocalValue,
   toDatetimeLocalValue,
 } from "@/lib/signup-phases";
 import { Button } from "@/components/ui/button";
@@ -44,10 +45,10 @@ function phasesFromDate(club: Club, lunchDate: string, startTime: string) {
     club,
   });
   return {
-    opens: toDatetimeLocalValue(p.signup_opens_at),
-    members: toDatetimeLocalValue(p.members_open_at),
-    guests: toDatetimeLocalValue(p.guests_open_at),
-    cutoff: toDatetimeLocalValue(p.signup_cutoff_at),
+    opens: toDatetimeLocalValue(p.signup_opens_at, club.timezone),
+    members: toDatetimeLocalValue(p.members_open_at, club.timezone),
+    guests: toDatetimeLocalValue(p.guests_open_at, club.timezone),
+    cutoff: toDatetimeLocalValue(p.signup_cutoff_at, club.timezone),
   };
 }
 
@@ -59,22 +60,20 @@ function phasesFromOpens(
   cutoffLocal: string
 ) {
   if (!lunchDate || !opensLocal) return null;
-  const opensIso = new Date(opensLocal);
-  if (Number.isNaN(opensIso.getTime())) return null;
-  const cutoffIso = cutoffLocal ? new Date(cutoffLocal) : null;
+  const opensIso = fromDatetimeLocalValue(opensLocal, club.timezone);
+  if (!opensIso) return null;
   const p = computePhaseTimestamps({
     lunchDate,
     startTime: startTime || "12:30",
     club,
-    signupOpensAt: opensIso.toISOString(),
-    cutoffAt:
-      cutoffIso && !Number.isNaN(cutoffIso.getTime())
-        ? cutoffIso.toISOString()
-        : null,
+    signupOpensAt: opensIso,
+    cutoffAt: cutoffLocal
+      ? fromDatetimeLocalValue(cutoffLocal, club.timezone)
+      : null,
   });
   return {
-    members: toDatetimeLocalValue(p.members_open_at),
-    guests: toDatetimeLocalValue(p.guests_open_at),
+    members: toDatetimeLocalValue(p.members_open_at, club.timezone),
+    guests: toDatetimeLocalValue(p.guests_open_at, club.timezone),
   };
 }
 
@@ -106,10 +105,10 @@ export function LunchForm({ slug, club, venues, lunch }: LunchFormProps) {
 
   const initialPhases = lunch
     ? {
-        opens: toDatetimeLocalValue(lunch.signup_opens_at),
-        members: toDatetimeLocalValue(lunch.members_open_at),
-        guests: toDatetimeLocalValue(lunch.guests_open_at),
-        cutoff: toDatetimeLocalValue(lunch.signup_cutoff_at),
+        opens: toDatetimeLocalValue(lunch.signup_opens_at, club.timezone),
+        members: toDatetimeLocalValue(lunch.members_open_at, club.timezone),
+        guests: toDatetimeLocalValue(lunch.guests_open_at, club.timezone),
+        cutoff: toDatetimeLocalValue(lunch.signup_cutoff_at, club.timezone),
       }
     : phasesFromDate(club, lunchDate, startTime);
 
@@ -247,7 +246,8 @@ export function LunchForm({ slug, club, venues, lunch }: LunchFormProps) {
             {club.committee_priority_days}d, members {club.members_only_days}d,
             guests {club.guests_phase_days}d, cutoff {club.signup_cutoff_days}d
             before the lunch). Changing the date or the open time recalculates
-            the later windows. You may override any field.
+            the later windows. You may override any field. Times are in{" "}
+            {club.timezone}.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
