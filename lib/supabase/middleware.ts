@@ -44,5 +44,20 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Imported members sign in with a temporary password and must choose their
+  // own before anything else.
+  if (
+    user?.app_metadata?.must_change_password &&
+    pathname !== "/auth/set-password" &&
+    pathname !== "/auth/signout"
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/set-password";
+    url.search = "";
+    const redirect = NextResponse.redirect(url);
+    supabaseResponse.cookies.getAll().forEach((c) => redirect.cookies.set(c));
+    return redirect;
+  }
+
   return supabaseResponse;
 }

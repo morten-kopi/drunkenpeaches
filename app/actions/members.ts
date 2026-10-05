@@ -10,7 +10,8 @@ import type { FormState } from "./auth";
 
 const inviteSchema = z.object({
   email: z.string().email("Enter a valid email"),
-  fullName: z.string().min(1, "Name is required").max(80),
+  firstName: z.string().trim().min(1, "First name is required").max(80),
+  lastName: z.string().trim().min(1, "Last name is required").max(80),
   role: z.enum(["member", "committee"]),
 });
 
@@ -28,11 +29,12 @@ export async function inviteMemberAction(
     const { club } = await requireCommittee(slug);
     const parsed = inviteSchema.safeParse({
       email: String(formData.get("email") ?? "").trim().toLowerCase(),
-      fullName: formData.get("fullName"),
+      firstName: formData.get("firstName"),
+      lastName: formData.get("lastName"),
       role: formData.get("role") ?? "member",
     });
     if (!parsed.success) return { error: parsed.error.issues[0].message };
-    const { email, fullName, role } = parsed.data;
+    const { email, firstName, lastName, role } = parsed.data;
 
     const admin = createAdminClient();
 
@@ -80,7 +82,8 @@ export async function inviteMemberAction(
       club_id: club.id,
       user_id: userId,
       email,
-      full_name: fullName,
+      first_name: firstName,
+      last_name: lastName,
       role,
       status,
     };
@@ -130,9 +133,12 @@ export async function resendInviteAction(slug: string, membershipId: string) {
 }
 
 const editSchema = z.object({
-  fullName: z.string().min(1).max(80),
+  firstName: z.string().trim().min(1, "First name is required").max(80),
+  lastName: z.string().trim().min(1, "Last name is required").max(80),
   phone: z.string().max(40).optional(),
   dietary: z.string().max(500).optional(),
+  function: z.string().trim().max(80).optional(),
+  comments: z.string().trim().max(2000).optional(),
   role: z.enum(["member", "committee"]),
   wineMaster: z.boolean(),
   status: z.enum(["invited", "active", "resigned", "lapsed", "removed"]),
@@ -149,9 +155,12 @@ export async function updateMemberAction(
   try {
     const { club, supabase, membership: me } = await requireCommittee(slug);
     const parsed = editSchema.safeParse({
-      fullName: formData.get("fullName"),
+      firstName: formData.get("firstName"),
+      lastName: formData.get("lastName"),
       phone: String(formData.get("phone") ?? ""),
       dietary: String(formData.get("dietary") ?? ""),
+      function: String(formData.get("function") ?? ""),
+      comments: String(formData.get("comments") ?? ""),
       role: formData.get("role"),
       wineMaster: formData.get("wineMaster") === "on",
       status: formData.get("status"),
@@ -167,9 +176,12 @@ export async function updateMemberAction(
     const { error } = await supabase
       .from("memberships")
       .update({
-        full_name: d.fullName,
+        first_name: d.firstName,
+        last_name: d.lastName,
         phone: d.phone || null,
         dietary_notes: d.dietary || null,
+        function: d.function || null,
+        comments: d.comments || null,
         role: d.role,
         wine_master: d.role === "committee" && d.wineMaster,
         status: d.status,
@@ -193,11 +205,13 @@ export async function updateMyProfileAction(
 ): Promise<FormState> {
   try {
     const { supabase, club } = await requireMember(slug);
-    const fullName = String(formData.get("fullName") ?? "").trim();
-    if (!fullName) return { error: "Your name is required" };
+    const firstName = String(formData.get("firstName") ?? "").trim();
+    const lastName = String(formData.get("lastName") ?? "").trim();
+    if (!firstName || !lastName) return { error: "Your name is required" };
     const { error } = await supabase.rpc("update_my_profile", {
       p_club: club.id,
-      p_full_name: fullName,
+      p_first_name: firstName,
+      p_last_name: lastName,
       p_phone: String(formData.get("phone") ?? "").trim() || null,
       p_dietary_notes: String(formData.get("dietary") ?? "").trim() || null,
     });

@@ -40,9 +40,16 @@ export interface Membership {
   club_id: string;
   user_id: string | null;
   email: string;
+  first_name: string;
+  last_name: string;
+  /** Derived in Postgres from first_name and last_name; read-only. */
   full_name: string;
   phone: string | null;
   dietary_notes: string | null;
+  /** Free-text club office, e.g. President. Separate from role. */
+  function: string | null;
+  /** Committee notes on the membership. */
+  comments: string | null;
   role: MemberRole;
   wine_master: boolean;
   status: MembershipStatus;

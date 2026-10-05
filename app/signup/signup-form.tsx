@@ -33,9 +33,25 @@ export function SignupForm() {
           required
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="fullName">Your name</Label>
-        <Input id="fullName" name="fullName" autoComplete="name" required />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="firstName">First name</Label>
+          <Input
+            id="firstName"
+            name="firstName"
+            autoComplete="given-name"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="lastName">Last name</Label>
+          <Input
+            id="lastName"
+            name="lastName"
+            autoComplete="family-name"
+            required
+          />
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>

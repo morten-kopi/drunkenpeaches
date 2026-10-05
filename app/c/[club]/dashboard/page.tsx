@@ -159,7 +159,7 @@ export default async function DashboardPage({
     <div className="space-y-8">
       <PageHeader
         kicker={ctx.club.name}
-        title={ctx.membership.full_name.split(" ")[0] || "The notice board"}
+        title={ctx.membership.first_name || "The notice board"}
         description="Forthcoming luncheons and the list."
       >
         {ctx.isCommittee ? (
