@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils";
 const MARK_PX = { sm: 28, default: 32, lg: 72 } as const;
 
 /**
- * The Drunken Peach mark: a peach with a glass of wine. The glass is filled
+ * The Drunken Peaches mark: a peach with a glass of wine. The glass is filled
  * white in the asset so it reads on light, dark and burgundy surfaces. Full
- * logo with wordmark: public/brand/drunken-peach-logo.png.
+ * logo with wordmark: public/brand/drunken-peaches-logo.png.
  */
 export function BrandMark({
   className,
@@ -18,7 +18,7 @@ export function BrandMark({
   const px = MARK_PX[size];
   return (
     <Image
-      src="/brand/drunken-peach-mark.png"
+      src="/brand/drunken-peaches-mark.png"
       alt=""
       aria-hidden
       width={px}
