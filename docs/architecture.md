@@ -138,5 +138,3 @@ per-phase notes live in [`docs/completions/`](./completions/).
   archive/restore) surface success via the revalidated UI rather than a
   toast — toasts there would require changing the server actions (a redesign
   non-goal). Errors still surface via `?error=` banners.
-- Brand favicon/OG image still use placeholders (metadata fields are set; a
-  designed asset is pending).

@@ -51,7 +51,7 @@ export function AuthShell({
       </div>
 
       <aside className="relative hidden w-[40%] max-w-xl flex-col justify-between overflow-hidden bg-primary px-12 py-14 text-primary-foreground lg:flex">
-        <BrandMark size="lg" className="border-primary-foreground/30 bg-transparent text-primary-foreground" />
+        <BrandMark size="lg" />
         <blockquote className="relative max-w-sm">
           <p className="font-heading text-[2rem] leading-[1.15] font-medium text-balance">
             A society of friends, a serious cellar, and a standing reservation.

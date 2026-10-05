@@ -1,38 +1,30 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
+const MARK_PX = { sm: 28, default: 32, lg: 72 } as const;
+
 /**
- * Quiet monogram — a framed serif "P" for Peaches. Replaces the peach emoji
- * across marketing, auth, and the club chrome.
+ * The Drunken Peaches mark: a peach with a glass of wine. The glass is filled
+ * white in the asset so it reads on light, dark and burgundy surfaces. Full
+ * logo with wordmark: public/brand/drunken-peaches-logo.png.
  */
 export function BrandMark({
   className,
   size = "default",
 }: {
   className?: string;
-  size?: "sm" | "default" | "lg";
+  size?: keyof typeof MARK_PX;
 }) {
+  const px = MARK_PX[size];
   return (
-    <span
+    <Image
+      src="/brand/drunken-peaches-mark.png"
+      alt=""
       aria-hidden
-      className={cn(
-        "inline-flex shrink-0 items-center justify-center border border-primary/50 bg-primary text-primary-foreground",
-        size === "sm" && "size-6",
-        size === "default" && "size-7",
-        size === "lg" && "size-9",
-        className
-      )}
-    >
-      <span
-        className={cn(
-          "font-heading leading-none font-medium",
-          size === "sm" && "text-[0.85rem]",
-          size === "default" && "text-[1rem]",
-          size === "lg" && "text-[1.2rem]"
-        )}
-      >
-        P
-      </span>
-    </span>
+      width={px}
+      height={px}
+      className={cn("shrink-0 select-none", className)}
+    />
   );
 }
 
