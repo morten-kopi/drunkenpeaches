@@ -159,8 +159,8 @@ export default async function DashboardPage({
                 ) : null}
                 {nextCopy ? (
                   <p className="max-w-md text-sm text-muted-foreground">
-                    {nextCopy.title}
-                    {nextCopy.detail ? ` — ${nextCopy.detail}` : ""}
+                    {nextCopy.title}.
+                    {nextCopy.detail ? ` ${nextCopy.detail}` : ""}
                   </p>
                 ) : null}
               </div>

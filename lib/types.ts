@@ -80,7 +80,11 @@ export interface Lunch {
   max_guests_per_member: number | null;
   notes: string | null;
   released_at: string | null;
+  /** When the day-before reminder for the lunch itself went out. */
   reminder_sent_at: string | null;
+  committee_reminder_sent_at: string | null;
+  members_reminder_sent_at: string | null;
+  guests_reminder_sent_at: string | null;
   created_at: string;
 }
 

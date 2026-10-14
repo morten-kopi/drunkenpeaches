@@ -62,6 +62,37 @@ async function notifyPromoted(
   );
 }
 
+/** Clear the reminder for any window the edit moved, so it goes out again. */
+function remindersToResend(
+  before: Lunch,
+  after: Pick<
+    Lunch,
+    | "lunch_date"
+    | "start_time"
+    | "signup_opens_at"
+    | "members_open_at"
+    | "guests_open_at"
+  >
+) {
+  const moved = (a: string | null, b: string | null) =>
+    (a ? Date.parse(a) : null) !== (b ? Date.parse(b) : null);
+  return {
+    ...(moved(before.signup_opens_at, after.signup_opens_at) && {
+      committee_reminder_sent_at: null,
+    }),
+    ...(moved(before.members_open_at, after.members_open_at) && {
+      members_reminder_sent_at: null,
+    }),
+    ...(moved(before.guests_open_at, after.guests_open_at) && {
+      guests_reminder_sent_at: null,
+    }),
+    ...((before.lunch_date !== after.lunch_date ||
+      before.start_time.slice(0, 5) !== after.start_time.slice(0, 5)) && {
+      reminder_sent_at: null,
+    }),
+  };
+}
+
 function lunchPath(slug: string, id?: string) {
   return id ? `/c/${slug}/lunches/${id}` : `/c/${slug}/lunches`;
 }
@@ -107,7 +138,7 @@ function parseLunchForm(formData: FormData, club: Club) {
     title: formData.get("title"),
     venueId: String(formData.get("venueId") ?? ""),
     lunchDate: formData.get("lunchDate"),
-    startTime: formData.get("startTime") || "12:30",
+    startTime: formData.get("startTime") || "12:15",
     capacity: formData.get("capacity"),
     signupOpensAt: String(formData.get("signupOpensAt") ?? ""),
     membersOpenAt: String(formData.get("membersOpenAt") ?? ""),
@@ -120,7 +151,7 @@ function parseLunchForm(formData: FormData, club: Club) {
   if (!parsed.success) return { error: parsed.error.issues[0].message } as const;
   const d = parsed.data;
 
-  const opens = parseOptionalIso(d.signupOpensAt, "sign-up open time", club.timezone);
+  const opens = parseOptionalIso(d.signupOpensAt, "committee open time", club.timezone);
   if (!opens.ok) return { error: opens.error };
   const members = parseOptionalIso(d.membersOpenAt, "members-open time", club.timezone);
   if (!members.ok) return { error: members.error };
@@ -223,7 +254,7 @@ export async function updateLunchAction(
     const { capacity: _capacity, ...row } = parsed.row;
     const { error } = await ctx.supabase
       .from("lunches")
-      .update(row)
+      .update({ ...row, ...remindersToResend(before, row) })
       .eq("id", lunchId);
     if (error) return { error: error.message };
 

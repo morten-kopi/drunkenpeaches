@@ -53,7 +53,7 @@ function phasesFromDate(club: Club, lunchDate: string, startTime: string) {
   }
   const p = computePhaseTimestamps({
     lunchDate,
-    startTime: startTime || "12:30",
+    startTime: startTime || "12:15",
     club,
   });
   return {
@@ -76,7 +76,7 @@ function phasesFromOpens(
   if (!opensIso) return null;
   const p = computePhaseTimestamps({
     lunchDate,
-    startTime: startTime || "12:30",
+    startTime: startTime || "12:15",
     club,
     signupOpensAt: opensIso,
     cutoffAt: cutoffLocal
@@ -149,7 +149,7 @@ export function LunchForm({
 
   const [lunchDate, setLunchDate] = useState(lunch?.lunch_date ?? "");
   const [startTime, setStartTime] = useState(
-    lunch?.start_time?.slice(0, 5) ?? "12:30"
+    lunch?.start_time?.slice(0, 5) ?? "12:15"
   );
 
   const initialPhases = lunch
@@ -307,14 +307,14 @@ export function LunchForm({
               Prefills from club defaults (committee{" "}
               {club.committee_priority_days}d, members {club.members_only_days}d,
               guests {club.guests_phase_days}d, cutoff {club.signup_cutoff_days}d
-              before the lunch). Changing the date or the open time recalculates
-              the later windows. You may override any field. Times are in{" "}
+              before the lunch). Changing the date or the committee open time
+              recalculates the later windows. You may override any field. Times are in{" "}
               {club.timezone}.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="signupOpensAt">Sign-ups open</Label>
+              <Label htmlFor="signupOpensAt">Committee open</Label>
               <Input
                 id="signupOpensAt"
                 name="signupOpensAt"
