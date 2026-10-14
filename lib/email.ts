@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { fmtDateShort } from "@/lib/format";
 
 // All v1 notification emails. If RESEND_API_KEY isn't configured the app
 // still works — emails are logged and skipped (handy in dev/preview).
@@ -14,7 +15,8 @@ async function send(to: string, subject: string, html: string) {
   }
   try {
     const resend = new Resend(apiKey);
-    await resend.emails.send({ from: FROM(), to, subject, html });
+    const { error } = await resend.emails.send({ from: FROM(), to, subject, html });
+    if (error) console.error(`[email failed] to=${to} subject="${subject}"`, error);
   } catch (err) {
     // Email failures must never break the member-facing flow.
     console.error(`[email failed] to=${to} subject="${subject}"`, err);
@@ -150,24 +152,190 @@ export async function sendPromoted(opts: {
   );
 }
 
-export async function sendLunchReminder(opts: {
-  to: string;
-  name: string;
-  clubName: string;
-  lunchTitle: string;
+// ---------- scheduled reminders (sent by /api/cron/reminders) ----------------
+
+export type Recipient = { email: string; name: string };
+
+/** A moment shown two ways: "Thu 15 Oct 2026" and "Thu 15 Oct 2026, 12:15". */
+export type Moment = { day: string; at: string };
+
+export type ReminderLunch = {
+  id: string;
+  clubSlug: string;
+  title: string;
   lunchDate: string;
   startTime: string;
-  venueName?: string | null;
+  venueName: string | null;
+  venueAddress?: string | null;
+};
+
+function esc(s: string) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function plural(n: number, noun: string) {
+  return `${n} ${noun}${n === 1 ? "" : "s"}`;
+}
+
+function lunchButton(lunch: ReminderLunch) {
+  const url = `${APP_URL()}/c/${lunch.clubSlug}/lunches/${lunch.id}`;
+  return `<p style="margin: 24px 0;">
+         <a href="${url}" style="background: #1c1917; color: #fafaf9; padding: 12px 24px; text-decoration: none; border-radius: 6px;">Open the luncheon</a>
+       </p>`;
+}
+
+function lunchWhen(lunch: ReminderLunch) {
+  const venue = [lunch.venueName, lunch.venueAddress].filter(Boolean).map((v) => esc(v!));
+  return `<strong>${fmtDate(lunch.lunchDate)}</strong> at ${lunch.startTime.slice(0, 5)}${
+    venue.length ? `, at ${venue.join(", ")}` : ""
+  }`;
+}
+
+/**
+ * One email per recipient, sent in batches (Resend takes up to 100 per call).
+ * False when Resend accepted none of them, so the caller can try again later.
+ * Without RESEND_API_KEY nothing is sent and it counts as done.
+ */
+async function sendEach<R extends Recipient>(
+  recipients: R[],
+  subject: string,
+  html: (r: R) => string
+): Promise<boolean> {
+  if (!recipients.length) return true;
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    for (const r of recipients) {
+      console.log(`[email skipped — no RESEND_API_KEY] to=${r.email} subject="${subject}"`);
+    }
+    return true;
+  }
+  const resend = new Resend(apiKey);
+  let delivered = false;
+  for (let i = 0; i < recipients.length; i += 100) {
+    const chunk = recipients.slice(i, i + 100);
+    try {
+      const { error } = await resend.batch.send(
+        chunk.map((r) => ({ from: FROM(), to: r.email, subject, html: html(r) }))
+      );
+      if (error) console.error(`[email batch failed] subject="${subject}"`, error);
+      else delivered = true;
+    } catch (err) {
+      console.error(`[email batch failed] subject="${subject}"`, err);
+    }
+  }
+  return delivered;
+}
+
+/** The day before committee registration opens. Committee only. */
+export async function sendCommitteeOpensReminder(opts: {
+  recipients: Recipient[];
+  clubName: string;
+  lunch: ReminderLunch;
+  opens: Moment;
+  membersOpen: Moment | null;
 }) {
-  await send(
-    opts.to,
-    `Reminder: ${opts.lunchTitle} is coming up`,
-    layout(
-      "Lunch reminder",
-      `<p>Dear ${opts.name || "member"},</p>
-       <p>A reminder that <strong>${opts.lunchTitle}</strong> is on <strong>${fmtDate(opts.lunchDate)}</strong> at ${opts.startTime.slice(0, 5)}${opts.venueName ? `, at ${opts.venueName}` : ""}.</p>`,
-      opts.clubName
-    )
+  const title = esc(opts.lunch.title);
+  return sendEach(
+    opts.recipients,
+    `${opts.lunch.title}: committee registration opens ${opts.opens.day}`,
+    (r) =>
+      layout(
+        "Committee registration",
+        `<p>Dear ${esc(r.name) || "member"},</p>
+       <p>Committee registration for <strong>${title}</strong> opens on <strong>${opts.opens.at}</strong>.${
+         opts.membersOpen ? ` Member registration follows on ${opts.membersOpen.at}.` : ""
+       }</p>
+       <p>The luncheon is on ${lunchWhen(opts.lunch)}.</p>
+       ${lunchButton(opts.lunch)}`,
+        opts.clubName
+      )
+  );
+}
+
+/** The day before member registration opens. Every active member. */
+export async function sendMembersOpenReminder(opts: {
+  recipients: Recipient[];
+  clubName: string;
+  lunch: ReminderLunch;
+  opens: Moment;
+  /** Null when the lunch takes no guests. */
+  guests: { maxPerMember: number; opens: Moment | null } | null;
+}) {
+  const title = esc(opts.lunch.title);
+  const guests = !opts.guests
+    ? "No guests at this luncheon."
+    : opts.guests.opens
+      ? `Guest registration opens ${opts.guests.opens.at}, provided there is space.`
+      : `Each member may bring up to ${plural(opts.guests.maxPerMember, "guest")}, provided there is space.`;
+  return sendEach(
+    opts.recipients,
+    `${opts.lunch.title}: registration opens ${opts.opens.day}`,
+    (r) =>
+      layout(
+        "Member registration",
+        `<p>Dear ${esc(r.name) || "member"},</p>
+       <p>Member registration for <strong>${title}</strong> opens on <strong>${opts.opens.at}</strong>. Places are first come, first served.</p>
+       <p>The luncheon is on ${lunchWhen(opts.lunch)}. ${guests}</p>
+       ${lunchButton(opts.lunch)}`,
+        opts.clubName
+      )
+  );
+}
+
+/** The day before guests may be added, when seats are free. Every active member. */
+export async function sendGuestsOpenReminder(opts: {
+  recipients: Recipient[];
+  clubName: string;
+  lunch: ReminderLunch;
+  opens: Moment;
+  maxPerMember: number;
+  seatsLeft: number;
+}) {
+  const title = esc(opts.lunch.title);
+  return sendEach(
+    opts.recipients,
+    `${opts.lunch.title}: guest registration opens ${opts.opens.day}`,
+    (r) =>
+      layout(
+        "Guest registration",
+        `<p>Dear ${esc(r.name) || "member"},</p>
+       <p>Guest registration for <strong>${title}</strong> opens on <strong>${opts.opens.at}</strong>. Each member may bring up to ${plural(opts.maxPerMember, "guest")}, provided there is space. ${plural(opts.seatsLeft, "seat")} ${opts.seatsLeft === 1 ? "is" : "are"} still free.</p>
+       <p>If your name is already on the list, add your guests on the luncheon page. If not, you can add your name and your guests together.</p>
+       <p>The luncheon is on ${lunchWhen(opts.lunch)}.</p>
+       ${lunchButton(opts.lunch)}`,
+        opts.clubName
+      )
+  );
+}
+
+/** The day before the lunch. Everyone with a confirmed place. */
+export async function sendLunchReminder(opts: {
+  recipients: (Recipient & { guestCount: number; guestNames: string | null })[];
+  clubName: string;
+  lunch: ReminderLunch;
+}) {
+  const title = esc(opts.lunch.title);
+  return sendEach(
+    opts.recipients,
+    `Reminder: ${opts.lunch.title}, ${fmtDateShort(opts.lunch.lunchDate)} at ${opts.lunch.startTime.slice(0, 5)}`,
+    (r) =>
+      layout(
+        "Lunch reminder",
+        `<p>Dear ${esc(r.name) || "member"},</p>
+       <p>A reminder that <strong>${title}</strong> is on ${lunchWhen(opts.lunch)}.</p>
+       ${
+         r.guestCount > 0
+           ? `<p>You are bringing ${plural(r.guestCount, "guest")}${r.guestNames ? ` (${esc(r.guestNames)})` : ""}.</p>`
+           : ""
+       }
+       <p>If you can no longer attend, please let the committee know as soon as possible.</p>
+       ${lunchButton(opts.lunch)}`,
+        opts.clubName
+      )
   );
 }
 

@@ -4,6 +4,7 @@ All notable changes to Drunken Peaches are recorded here. Newest first.
 
 ## Index
 
+- **[0.7.0](#070-2026-10-14)**: Clearer registration status, restaurant list as PDF, 12:15 start, four reminder emails ready for Resend.
 - **[0.6.0](#060--2026-10-05)** — Simpler app: the Cellar, venue tastings and speaking roles removed; each lunch decides on guests; the guest date binds the committee too.
 - **[0.5.0](#050--2026-09-23)** — Committee assigns Food 1 / Food 2 / Wine 1 / Wine 2 speaking roles on a lunch; assignees are written to and see the duty in-app.
 - **[0.4.0](#040--2026-09-23)** — Configurable three-phase lunch sign-up windows (committee → members → guests), with a next-open-lunch rule for members.
@@ -12,6 +13,25 @@ All notable changes to Drunken Peaches are recorded here. Newest first.
 - **[0.1.0](#010--2026-06-13)** — Initial build: multi-tenant club lunch & member management (auth, members, venues, lunches, sign-ups/waitlist, wine, email, reminder cron).
 
 ---
+
+## 0.7.0 (2026-10-14)
+
+Migration `supabase/migrations/00007_lunch_reminders.sql`.
+
+- **Registration status:** the lunch status line names who can register
+  now. Before guests open: "Open for member registration only. Guest
+  registration opens {date}, provided there is space." After: "Now open
+  for both member and guest registration."
+- **Restaurant list:** "Download PDF" next to "Copy for the restaurant".
+  The PDF lists each confirmed member with guests and dietary notes, plus
+  the headcount. Committee only.
+- **Start time:** new lunches default to 12:15 (was 12:30).
+- **Lunch form:** "Sign-ups open" is now "Committee open".
+- **Reminder emails:** the day before committee registration opens
+  (committee), member registration opens (everyone), guest registration
+  opens (everyone, only with free seats) and the lunch itself (confirmed
+  attendees). Sent once each by the daily cron; nothing goes out until
+  `RESEND_API_KEY` is set.
 
 ## 0.6.0 — 2026-10-05
 

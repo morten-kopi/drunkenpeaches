@@ -73,8 +73,7 @@ export function SettingsForm({ slug, club }: { slug: string; club: Club }) {
               className="w-24"
             />
             <p className="text-xs text-muted-foreground">
-              From the moment sign-ups open, only the committee may add their
-              names. After this many days the list opens to the membership.
+              From committee open, only the committee may add their names. After this many days the list opens to the membership.
             </p>
           </div>
           <div className="space-y-2">

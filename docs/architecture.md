@@ -95,9 +95,25 @@ layer sends the notification emails.
 ### Email (Resend, implemented)
 
 Invite, sign-up confirmed, waitlisted, promoted from waitlist, lunch
-changed/cancelled, password reset — plus a daily Vercel cron
-(`/api/cron/reminders`) for the ~2-days-before reminder. No email on release
-(per vision). Emails no-op gracefully when `RESEND_API_KEY` is unset.
+changed/cancelled, password reset. A daily Vercel cron
+(`/api/cron/reminders`, 09:00 Singapore) sends four reminders per released
+lunch, each the day before on the club's clock and each once (migration
+00007 adds a `*_reminder_sent_at` column per reminder):
+
+| Reminder | Recipients | Marked by |
+| --- | --- | --- |
+| Committee registration opens (`signup_opens_at`) | Active committee | `committee_reminder_sent_at` |
+| Member registration opens (`members_open_at`) | Every active member | `members_reminder_sent_at` |
+| Guest registration opens (`guests_open_at`), only if the lunch takes guests and seats are free | Every active member | `guests_reminder_sent_at` |
+| The lunch itself | Confirmed attendees | `reminder_sent_at` |
+
+Moving a window on the lunch form clears its column, so the reminder goes
+out again with the new time. Reminders go through Resend's batch endpoint.
+No email on release (per vision). Emails no-op gracefully when
+`RESEND_API_KEY` is unset, and the cron still marks reminders as sent, so
+turning Resend on never sends a backlog. A reminder Resend rejects outright
+(for example before a sending domain is verified) is unmarked and retried on
+the next run, until its moment passes.
 
 ## Design system (UI, 2026 redesign)
 

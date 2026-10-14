@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import {
   CalendarDaysIcon,
   ClockIcon,
+  DownloadIcon,
   LockIcon,
   MapPinIcon,
   PencilIcon,
@@ -41,7 +42,11 @@ import {
   committeeRemoveSignupAction,
   markAttendanceAction,
 } from "@/app/actions/lunches";
-import { Button } from "@/components/ui/button";
+import {
+  restaurantListText,
+  restaurantRows,
+} from "@/lib/restaurant-list";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -147,25 +152,10 @@ export default async function LunchDetailPage({
   );
   const addable = roster.filter((m) => !signedUpIds.has(m.id));
 
-  const dietary = confirmed
-    .filter((s) => s.memberships?.dietary_notes)
-    .map((s) => `${s.memberships!.full_name}: ${s.memberships!.dietary_notes}`);
-
-  const restaurantList = [
-    `${lunch.title} — ${fmtDate(lunch.lunch_date)} — final headcount: ${taken}`,
-    "",
-    ...confirmed.map(
-      (s) =>
-        `${s.memberships?.full_name}${
-          s.guest_count > 0
-            ? ` + ${s.guest_count} guest${s.guest_count > 1 ? "s" : ""}${
-                s.guest_names ? ` (${s.guest_names})` : ""
-              }`
-            : ""
-        }`
-    ),
-    ...(dietary.length ? ["", "Dietary:", ...dietary.map((d) => `- ${d}`)] : []),
-  ].join("\n");
+  const restaurantList = restaurantListText(
+    { ...lunch, venueName: lunch.venues?.name ?? null },
+    restaurantRows(confirmed)
+  );
 
   return (
     <div className="space-y-8">
@@ -196,8 +186,8 @@ export default async function LunchDetailPage({
               <p className="flex items-start gap-2">
                 <LockIcon className="mt-0.5 size-4 shrink-0" />
                 <span>
-                  {windowCopy.title}
-                  {windowCopy.detail ? ` — ${windowCopy.detail}` : ""}
+                  {windowCopy.title}.
+                  {windowCopy.detail ? ` ${windowCopy.detail}` : ""}
                 </span>
               </p>
             ) : lunch.signup_cutoff_at && lunch.status === "released" ? (
@@ -214,7 +204,7 @@ export default async function LunchDetailPage({
               <p className="text-xs text-muted-foreground">
                 {[
                   lunch.signup_opens_at
-                    ? `Opens ${fmtDateTime(lunch.signup_opens_at, ctx.club.timezone)}`
+                    ? `Committee ${fmtDateTime(lunch.signup_opens_at, ctx.club.timezone)}`
                     : null,
                   lunch.members_open_at
                     ? `Members ${fmtDateTime(lunch.members_open_at, ctx.club.timezone)}`
@@ -667,14 +657,22 @@ export default async function LunchDetailPage({
           {/* Restaurant list */}
           <Card>
             <CardHeader>
-              <CardTitle>Restaurant list — dietary notes</CardTitle>
+              <CardTitle>Restaurant list and dietary notes</CardTitle>
               {confirmed.length > 0 ? (
-                <CardContent className="px-0 pt-1">
+                <div className="flex flex-wrap gap-2 pt-1">
                   <CopyButton
                     text={restaurantList}
                     label="Copy for the restaurant"
                   />
-                </CardContent>
+                  <a
+                    href={`/c/${slug}/lunches/${lunch.id}/restaurant-list`}
+                    download
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                  >
+                    <DownloadIcon />
+                    Download PDF
+                  </a>
+                </div>
               ) : null}
             </CardHeader>
             <CardContent>
