@@ -111,7 +111,9 @@ Moving a window on the lunch form clears its column, so the reminder goes
 out again with the new time. Reminders go through Resend's batch endpoint.
 No email on release (per vision). Emails no-op gracefully when
 `RESEND_API_KEY` is unset, and the cron still marks reminders as sent, so
-turning Resend on never sends a backlog.
+turning Resend on never sends a backlog. A reminder Resend rejects outright
+(for example before a sending domain is verified) is unmarked and retried on
+the next run, until its moment passes.
 
 ## Design system (UI, 2026 redesign)
 

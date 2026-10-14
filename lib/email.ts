@@ -15,7 +15,8 @@ async function send(to: string, subject: string, html: string) {
   }
   try {
     const resend = new Resend(apiKey);
-    await resend.emails.send({ from: FROM(), to, subject, html });
+    const { error } = await resend.emails.send({ from: FROM(), to, subject, html });
+    if (error) console.error(`[email failed] to=${to} subject="${subject}"`, error);
   } catch (err) {
     // Email failures must never break the member-facing flow.
     console.error(`[email failed] to=${to} subject="${subject}"`, err);
@@ -194,21 +195,26 @@ function lunchWhen(lunch: ReminderLunch) {
   }`;
 }
 
-/** One email per recipient, sent in batches (Resend takes up to 100 per call). */
+/**
+ * One email per recipient, sent in batches (Resend takes up to 100 per call).
+ * False when Resend accepted none of them, so the caller can try again later.
+ * Without RESEND_API_KEY nothing is sent and it counts as done.
+ */
 async function sendEach<R extends Recipient>(
   recipients: R[],
   subject: string,
   html: (r: R) => string
-) {
-  if (!recipients.length) return;
+): Promise<boolean> {
+  if (!recipients.length) return true;
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     for (const r of recipients) {
       console.log(`[email skipped — no RESEND_API_KEY] to=${r.email} subject="${subject}"`);
     }
-    return;
+    return true;
   }
   const resend = new Resend(apiKey);
+  let delivered = false;
   for (let i = 0; i < recipients.length; i += 100) {
     const chunk = recipients.slice(i, i + 100);
     try {
@@ -216,10 +222,12 @@ async function sendEach<R extends Recipient>(
         chunk.map((r) => ({ from: FROM(), to: r.email, subject, html: html(r) }))
       );
       if (error) console.error(`[email batch failed] subject="${subject}"`, error);
+      else delivered = true;
     } catch (err) {
       console.error(`[email batch failed] subject="${subject}"`, err);
     }
   }
+  return delivered;
 }
 
 /** The day before committee registration opens. Committee only. */
@@ -231,7 +239,7 @@ export async function sendCommitteeOpensReminder(opts: {
   membersOpen: Moment | null;
 }) {
   const title = esc(opts.lunch.title);
-  await sendEach(
+  return sendEach(
     opts.recipients,
     `${opts.lunch.title}: committee registration opens ${opts.opens.day}`,
     (r) =>
@@ -263,7 +271,7 @@ export async function sendMembersOpenReminder(opts: {
     : opts.guests.opens
       ? `Guest registration opens ${opts.guests.opens.at}, provided there is space.`
       : `Each member may bring up to ${plural(opts.guests.maxPerMember, "guest")}, provided there is space.`;
-  await sendEach(
+  return sendEach(
     opts.recipients,
     `${opts.lunch.title}: registration opens ${opts.opens.day}`,
     (r) =>
@@ -288,7 +296,7 @@ export async function sendGuestsOpenReminder(opts: {
   seatsLeft: number;
 }) {
   const title = esc(opts.lunch.title);
-  await sendEach(
+  return sendEach(
     opts.recipients,
     `${opts.lunch.title}: guest registration opens ${opts.opens.day}`,
     (r) =>
@@ -311,7 +319,7 @@ export async function sendLunchReminder(opts: {
   lunch: ReminderLunch;
 }) {
   const title = esc(opts.lunch.title);
-  await sendEach(
+  return sendEach(
     opts.recipients,
     `Reminder: ${opts.lunch.title}, ${fmtDateShort(opts.lunch.lunchDate)} at ${opts.lunch.startTime.slice(0, 5)}`,
     (r) =>

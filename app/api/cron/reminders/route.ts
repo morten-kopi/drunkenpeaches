@@ -48,7 +48,7 @@ const toRecipient = (m: Pick<MemberRow, "email" | "first_name" | "full_name">) =
  *   guests and seats are free
  * - the lunch itself: everyone confirmed
  * A run that misses the day before still sends on the day, until the moment
- * itself has passed.
+ * itself has passed. A reminder Resend refuses outright is retried the same way.
  */
 export async function GET(request: NextRequest) {
   const auth = request.headers.get("authorization");
@@ -84,6 +84,7 @@ export async function GET(request: NextRequest) {
   }
 
   const sent: string[] = [];
+  const failed: string[] = [];
   for (const lunch of (data ?? []) as LunchRow[]) {
     if (!lunch.clubs) continue;
     const club = lunch.clubs;
@@ -111,8 +112,16 @@ export async function GET(request: NextRequest) {
         .eq("id", lunch.id)
         .is(column, null)
         .select("id");
-      if (rows?.length) sent.push(`${lunch.id}:${column}`);
       return !!rows?.length;
+    }
+    // Resend took none of them (e.g. no verified domain yet): try tomorrow.
+    async function settle(column: ReminderColumn, delivered: boolean) {
+      if (delivered) {
+        sent.push(`${lunch.id}:${column}`);
+        return;
+      }
+      failed.push(`${lunch.id}:${column}`);
+      await admin.from("lunches").update({ [column]: null }).eq("id", lunch.id);
     }
 
     const info: ReminderLunch = {
@@ -134,18 +143,18 @@ export async function GET(request: NextRequest) {
       (await claim("committee_reminder_sent_at"))
     ) {
       const members = await activeMembers(lunch.club_id);
-      await sendCommitteeOpensReminder({
+      await settle("committee_reminder_sent_at", await sendCommitteeOpensReminder({
         recipients: members.filter((m) => m.role === "committee").map(toRecipient),
         clubName: club.name,
         lunch: info,
         opens: moment(lunch.signup_opens_at),
         membersOpen: lunch.members_open_at ? moment(lunch.members_open_at) : null,
-      });
+      }));
     }
 
     if (due(lunch.members_open_at) && (await claim("members_reminder_sent_at"))) {
       const members = await activeMembers(lunch.club_id);
-      await sendMembersOpenReminder({
+      await settle("members_reminder_sent_at", await sendMembersOpenReminder({
         recipients: members.map(toRecipient),
         clubName: club.name,
         lunch: info,
@@ -158,7 +167,7 @@ export async function GET(request: NextRequest) {
                 : null,
             }
           : null,
-      });
+      }));
     }
 
     // Only when guests come after members (else the members email covers it)
@@ -179,14 +188,14 @@ export async function GET(request: NextRequest) {
         seatsTaken((signups ?? []) as Pick<Signup, "status" | "guest_count">[]);
       if (seatsLeft > 0 && (await claim("guests_reminder_sent_at"))) {
         const members = await activeMembers(lunch.club_id);
-        await sendGuestsOpenReminder({
+        await settle("guests_reminder_sent_at", await sendGuestsOpenReminder({
           recipients: members.map(toRecipient),
           clubName: club.name,
           lunch: info,
           opens: moment(lunch.guests_open_at),
           maxPerMember: policy.maxPerMember,
           seatsLeft,
-        });
+        }));
       }
     }
 
@@ -208,9 +217,12 @@ export async function GET(request: NextRequest) {
           } satisfies Recipient & { guestCount: number; guestNames: string | null },
         ];
       });
-      await sendLunchReminder({ recipients, clubName: club.name, lunch: info });
+      await settle(
+        "reminder_sent_at",
+        await sendLunchReminder({ recipients, clubName: club.name, lunch: info })
+      );
     }
   }
 
-  return NextResponse.json({ lunches: data?.length ?? 0, sent });
+  return NextResponse.json({ lunches: data?.length ?? 0, sent, failed });
 }
