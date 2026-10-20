@@ -11,7 +11,7 @@ export default async function SetPasswordPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/");
 
   const { data: membership } = await supabase
     .from("memberships")

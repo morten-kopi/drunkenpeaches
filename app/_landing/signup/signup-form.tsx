@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { createClubAction, type FormState } from "@/app/actions/auth";
+import type { FormState } from "@/app/actions/auth";
+import { createClubAction } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
