@@ -11,7 +11,7 @@ export interface ClubContext {
 }
 
 /**
- * Resolves the signed-in user's context for a club slug. Redirects to /login
+ * Resolves the signed-in user's context for a club slug. Redirects to the sign-in page
  * when signed out; 404s when the user isn't an active member of that club
  * (RLS would hide the club row anyway — this just makes it explicit).
  * Cached per request so layout + page can both call it.
@@ -22,7 +22,7 @@ export const getClubContext = cache(
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) redirect("/login");
+    if (!user) redirect("/");
 
     const { data: club } = await supabase
       .from("clubs")

@@ -73,7 +73,7 @@ export async function inviteMemberAction(
       if (!found) return { error: "Could not resolve the existing account" };
       userId = found.id;
       status = "active";
-      inviteLink = `${appUrl()}/login`;
+      inviteLink = `${appUrl()}/`;
     } else {
       return { error: linkErr?.message ?? "Could not create the invite" };
     }

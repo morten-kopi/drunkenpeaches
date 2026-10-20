@@ -14,7 +14,7 @@ export default function SignupPage() {
         <p>
           Already a member?{" "}
           <Link
-            href="/login"
+            href="/"
             className="text-foreground underline underline-offset-4 hover:text-primary"
           >
             Members&apos; entrance

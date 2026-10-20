@@ -25,8 +25,10 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
 - Every tenant-scoped table carries a **`club_id`**.
 - A **`memberships`** table maps `user ↔ club ↔ role` (`member` | `committee`).
 - RLS policies ensure a signed-in user can only read/write rows for clubs they belong to.
-- **Self-serve club signup:** the person who signs up creates the club row and gets a
-  `committee` membership for it (their first admin).
+- **Club signup is switched off.** The self-serve flow (the person who signs up creates
+  the club row and gets a `committee` membership) is parked, unrouted, in
+  `app/_landing/signup/`. No RLS policy lets a user insert a club, so with it parked
+  no new clubs can be created from the app.
 
 ## Server-side privileges
 

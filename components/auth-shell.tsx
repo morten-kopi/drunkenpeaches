@@ -56,14 +56,7 @@ export function AuthShell({
           <p className="font-heading text-[2rem] leading-[1.15] font-medium text-balance">
             A society of friends, a serious cellar, and a standing reservation.
           </p>
-          <footer className="mt-6 text-sm leading-relaxed text-primary-foreground/70">
-            The list, the venues, the wine — kept so the committee may return
-            to the table.
-          </footer>
         </blockquote>
-        <p className="relative text-xs tracking-wide text-primary-foreground/55">
-          Each club is its own private chapter.
-        </p>
       </aside>
     </main>
   );

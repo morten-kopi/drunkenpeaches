@@ -58,7 +58,9 @@ Singapore) that emails confirmed attendees ~2 days before a lunch.
 
 ### 4. First run
 
-1. Visit `/signup` → create your club. You become its first committee admin.
+1. Create your club. Self-serve signup is switched off in this deployment; to use it,
+   restore `app/_landing/signup/` as described at the top of `app/_landing/page.tsx`,
+   then visit `/signup`. You become the club's first committee admin.
 2. **Members** → invite the roster (they get a Resend email to set a password).
 3. **Venues** → add the restaurants you book (or create one from the lunch form).
 4. **New lunch** → book the restaurant first; capacity X comes from that
