@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getClubContext } from "@/lib/club-context";
 import { PageHeader } from "@/components/page-header";
 import { SettingsForm } from "./settings-form";
+import { ExportCard } from "./export-card";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -20,9 +21,10 @@ export default async function SettingsPage({
       <PageHeader
         kicker="Committee"
         title="Club settings"
-        description="Identity and the list windows for this chapter."
+        description="Identity, the list windows and exports for this chapter."
       />
       <SettingsForm slug={slug} club={ctx.club} />
+      <ExportCard slug={slug} />
     </div>
   );
 }
