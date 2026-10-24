@@ -206,7 +206,7 @@ export async function GET(request: NextRequest) {
       const { data: attendees } = await admin
         .from("signups")
         .select(
-          "guest_count, guest_names, memberships(email, first_name, full_name), signup_guests(guests(full_name))"
+          "guest_count, memberships(email, first_name, full_name), signup_guests(guests(full_name))"
         )
         .eq("lunch_id", lunch.id)
         .eq("status", "confirmed");
@@ -220,7 +220,7 @@ export async function GET(request: NextRequest) {
           {
             ...toRecipient(m),
             guestCount: a.guest_count as number,
-            guestNames: guestNames(guests, a.guest_names as string | null),
+            guestNames: guestNames(guests),
           } satisfies Recipient & { guestCount: number; guestNames: string | null },
         ];
       });

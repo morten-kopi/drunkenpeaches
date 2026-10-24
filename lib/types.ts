@@ -95,7 +95,6 @@ export interface Signup {
   membership_id: string;
   status: SignupStatus;
   guest_count: number;
-  guest_names: string | null;
   added_by_committee: boolean;
   attended: boolean | null;
   created_at: string;

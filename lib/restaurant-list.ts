@@ -5,7 +5,7 @@ import type { Guest, Lunch, Membership, Signup } from "@/lib/types";
 type GuestFields = Pick<Guest, "full_name" | "dietary_notes">;
 
 /** A confirmed sign-up with the member and guest fields the restaurant needs. */
-export type RestaurantSignup = Pick<Signup, "guest_count" | "guest_names"> & {
+export type RestaurantSignup = Pick<Signup, "guest_count"> & {
   memberships: Pick<Membership, "full_name" | "dietary_notes"> | null;
   guests?: GuestFields[];
 };
@@ -31,7 +31,7 @@ export function restaurantRows(confirmed: RestaurantSignup[]): RestaurantRow[] {
   return confirmed.map((s) => ({
     name: s.memberships?.full_name || "Unknown",
     guests: s.guest_count,
-    guestNames: guestNames(s.guests, s.guest_names),
+    guestNames: guestNames(s.guests),
     dietary: s.memberships?.dietary_notes?.trim() || null,
     guestDietary: (s.guests ?? [])
       .filter((g) => g.dietary_notes?.trim())

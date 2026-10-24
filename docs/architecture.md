@@ -63,8 +63,8 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
   `members_open_at` / `guests_open_at` / `signup_cutoff_at`, and the
   lunch's own guest decision (`guests_allowed`, `max_guests_per_member`;
   there is no club default since 00006). Phase logic lives in
-  `lib/signup-phases.ts` and the `sign_up_for_lunch` /
-  `update_my_guests` RPCs. Committee may add their own names before the
+  `lib/signup-phases.ts` and the `sign_up_with_guests` /
+  `set_my_guests` RPCs. Committee may add their own names before the
   membership, but nobody adds guests before `guests_open_at`.
 - **signups** — one per member per lunch: confirmed/waitlisted/cancelled,
   `guest_count` (guests consume seats), `created_at` is the FCFS order,
@@ -79,10 +79,10 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
   stays the seat count every capacity rule reads; the sign-up functions keep
   it equal to the number of linked guests. Rows stay when a signup is
   cancelled, and readers skip cancelled signups. A guest is at a lunch once,
-  whoever brings them. `signups.guest_names` is unused since 00008.
-- **Unused since 00008**, kept so the previous app version keeps working
-  until it is replaced: `sign_up_for_lunch`, `update_my_guests`,
-  `committee_add_signup` and `signups.guest_names`.
+  whoever brings them. The free-text `signups.guest_names` was dropped in
+  00010.
+- **Dropped in 00010**: `sign_up_for_lunch`, `update_my_guests` and
+  `committee_add_signup`, replaced by the guest-aware functions in 00008.
 - **Unused since 00006**, kept until a cleanup migration drops them:
   `tastings` (venue pipeline), `wines` and `lunch_wines` (the Cellar),
   `lunch_roles` and its RPCs (speaking roles), `memberships.wine_master`,
