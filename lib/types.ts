@@ -102,6 +102,37 @@ export interface Signup {
   cancelled_at: string | null;
 }
 
+/** A person a member brings to lunches. Never logs in; matched on email. */
+export interface Guest {
+  id: string;
+  club_id: string;
+  first_name: string;
+  last_name: string;
+  /** Derived in Postgres from first_name and last_name; read-only. */
+  full_name: string;
+  email: string;
+  dietary_notes: string | null;
+  /** Set once the committee makes the guest a member. */
+  membership_id: string | null;
+  upgraded_at: string | null;
+  created_at: string;
+}
+
+/** A guest on a lunch, from lunch_guests(). Email and diet: committee only. */
+export interface LunchGuest {
+  signup_id: string;
+  guest_id: string;
+  full_name: string;
+  email: string | null;
+  dietary_notes: string | null;
+}
+
+/** A guest the guest picker can offer. */
+export interface GuestOption {
+  id: string;
+  full_name: string;
+}
+
 /** Row returned by waitlist-promoting SQL functions. */
 export interface PromotedMember {
   membership_id: string;

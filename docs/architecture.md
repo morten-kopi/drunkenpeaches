@@ -69,6 +69,20 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
 - **signups** — one per member per lunch: confirmed/waitlisted/cancelled,
   `guest_count` (guests consume seats), `created_at` is the FCFS order,
   `attended` for history.
+- **guests** (00008) — people members bring to lunches: first and last name,
+  email, dietary notes. One row per person per club, matched on email, so a
+  guest brought by two members is one record. Guests never log in and are
+  not memberships. `membership_id` is set when the committee makes a guest a
+  member (`inviteToClub` in `lib/invite.ts` links any guest with the invited
+  email), and their guest lunches stay in the member's history.
+- **signup_guests** (00008) — the guests on a signup. `signups.guest_count`
+  stays the seat count every capacity rule reads; the sign-up functions keep
+  it equal to the number of linked guests. Rows stay when a signup is
+  cancelled, and readers skip cancelled signups. A guest is at a lunch once,
+  whoever brings them. `signups.guest_names` is unused since 00008.
+- **Unused since 00008**, kept so the previous app version keeps working
+  until it is replaced: `sign_up_for_lunch`, `update_my_guests`,
+  `committee_add_signup` and `signups.guest_names`.
 - **Unused since 00006**, kept until a cleanup migration drops them:
   `tastings` (venue pipeline), `wines` and `lunch_wines` (the Cellar),
   `lunch_roles` and its RPCs (speaking roles), `memberships.wine_master`,
@@ -78,9 +92,10 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
 ### Business rules live in SQL functions (SECURITY DEFINER)
 
 Sign-up, cancel, waitlist auto-promotion, capacity change, cutoff and
-guest-date enforcement are Postgres functions (`sign_up_for_lunch`,
-`update_my_guests`, `cancel_my_signup`, `promote_from_waitlist`,
-`set_lunch_capacity`, `cancel_lunch`, …) so they are atomic (row-locked)
+guest-date enforcement are Postgres functions (`sign_up_with_guests`,
+`set_my_guests`, `committee_add_signup_with_guests`, `committee_set_guests`,
+`cancel_my_signup`, `promote_from_waitlist`, `set_lunch_capacity`,
+`cancel_lunch`, …) so they are atomic (row-locked)
 and cannot be bypassed from any client. `signups` has no direct write
 policies at all. Promotion functions return who was promoted so the app
 layer sends the notification emails.
@@ -92,6 +107,9 @@ layer sends the notification emails.
 - Members read their club, roster, venues, non-draft lunches and signups;
   committee additionally reads drafts and writes everything (sign-up writes
   only via RPCs).
+- Guests are committee-only tables. Members get guest names on a lunch
+  through `lunch_guests()` (email and dietary notes stay null for them) and
+  their own past guests through `previous_guests()` for the guest picker.
 - Club creation and member invites run server-side with the service-role key.
 
 ### Email (Resend, implemented)

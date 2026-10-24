@@ -11,6 +11,7 @@ import {
   AttendanceHistory,
   type AttendanceItem,
 } from "@/components/attendance-history";
+import { appearanceItems, guestAppearances } from "@/lib/guest-history";
 import { MemberEditForm } from "./member-edit-form";
 
 export const metadata: Metadata = { title: "Edit member" };
@@ -34,7 +35,7 @@ export default async function MemberDetailPage({
   if (!memberData) notFound();
   const member = memberData as Membership;
 
-  const { data: history } = await supabase
+  const { data: signupHistory } = await supabase
     .from("signups")
     .select(
       "id, status, attended, guest_count, lunches(id, title, lunch_date, status)"
@@ -43,7 +44,7 @@ export default async function MemberDetailPage({
     .order("created_at", { ascending: false })
     .limit(50);
 
-  const attendance: AttendanceItem[] = (history ?? [])
+  const attendance: AttendanceItem[] = (signupHistory ?? [])
     .map((h) => ({
       raw: h,
       lunch: h.lunches as unknown as {
@@ -60,7 +61,26 @@ export default async function MemberDetailPage({
       title: h.lunch!.title,
       status: h.raw.status,
       attended: h.raw.attended,
+      href: `/c/${slug}/lunches/${h.lunch!.id}`,
     }));
+
+  // Lunches they came to as a guest, before they joined.
+  const { data: guestRows } = await supabase
+    .from("guests")
+    .select("id")
+    .eq("club_id", ctx.club.id)
+    .eq("membership_id", id);
+  const asGuest = appearanceItems(
+    await guestAppearances(
+      supabase,
+      ctx.club.id,
+      (guestRows ?? []).map((g) => g.id as string)
+    ),
+    slug
+  );
+  const history = [...attendance, ...asGuest].sort((a, b) =>
+    b.date.localeCompare(a.date)
+  );
 
   return (
     <div className="space-y-8">
@@ -94,7 +114,7 @@ export default async function MemberDetailPage({
         isSelf={member.id === ctx.membership.id}
       />
 
-      <AttendanceHistory items={attendance} />
+      <AttendanceHistory items={history} />
     </div>
   );
 }

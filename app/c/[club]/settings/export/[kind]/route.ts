@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { todayInZone, fmtTime } from "@/lib/format";
 import { csvResponse, sheetDateTime, toCsv, type CsvCell } from "@/lib/csv";
 import { fetchAll } from "@/lib/fetch-all";
-import type { Lunch, Membership, Signup, Venue } from "@/lib/types";
+import { attended, guestAppearances } from "@/lib/guest-history";
+import type { Guest, Lunch, Membership, Signup, Venue } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ type Export = { headers: string[]; rows: CsvCell[][] };
 
 const EXPORTS: Record<string, (s: Supabase, ctx: ClubContext) => Promise<Export>> = {
   members: membersCsv,
+  guests: guestsCsv,
   venues: venuesCsv,
   lunches: lunchesCsv,
   attendance: attendanceCsv,
@@ -71,6 +73,56 @@ async function membersCsv(supabase: Supabase, { club }: ClubContext): Promise<Ex
       m.joined_on,
       m.comments,
     ]),
+  };
+}
+
+async function guestsCsv(supabase: Supabase, { club }: ClubContext): Promise<Export> {
+  const guests = await fetchAll<Guest>((from, to) =>
+    supabase
+      .from("guests")
+      .select("*")
+      .eq("club_id", club.id)
+      .order("last_name")
+      .order("first_name")
+      .order("id")
+      .range(from, to)
+  );
+  const today = todayInZone(club.timezone);
+  const byGuest = new Map<string, { count: number; last: string | null; hosts: Set<string> }>();
+  for (const a of await guestAppearances(supabase, club.id)) {
+    const e = byGuest.get(a.guest_id) ?? { count: 0, last: null, hosts: new Set<string>() };
+    if (a.signups?.memberships) e.hosts.add(a.signups.memberships.full_name);
+    if (attended(a, today)) {
+      e.count += 1;
+      const date = a.signups!.lunches!.lunch_date;
+      if (!e.last || date > e.last) e.last = date;
+    }
+    byGuest.set(a.guest_id, e);
+  }
+  return {
+    headers: [
+      "First name",
+      "Last name",
+      "Email",
+      "Dietary notes",
+      "Lunches attended",
+      "Last lunch",
+      "Brought by",
+      "Became a member",
+    ],
+    rows: guests.map((g) => {
+      const e = byGuest.get(g.id);
+      return [
+        g.first_name,
+        g.last_name,
+        g.email,
+        g.dietary_notes,
+        e?.count ?? 0,
+        e?.last,
+        [...(e?.hosts ?? [])].sort().join(", "),
+        g.upgraded_at ? sheetDateTime(g.upgraded_at, club.timezone).slice(0, 10) : "",
+      ];
+    }),
   };
 }
 
@@ -167,16 +219,20 @@ type AttendanceRow = Pick<
   lunches: Pick<Lunch, "lunch_date" | "start_time" | "title" | "status"> & {
     venues: { name: string } | null;
   };
-  memberships: Pick<Membership, "first_name" | "last_name" | "email"> | null;
+  memberships: Pick<Membership, "first_name" | "last_name" | "full_name" | "email"> | null;
+  signup_guests: { guests: Pick<Guest, "first_name" | "last_name" | "email"> | null }[];
 };
 
-/** One row per person per lunch, cancelled places left out. */
+/**
+ * One row per person per lunch, members and guests, cancelled places left
+ * out. A guest's place and attendance are their host's.
+ */
 async function attendanceCsv(supabase: Supabase, { club }: ClubContext): Promise<Export> {
   const signups = await fetchAll<AttendanceRow>((from, to) =>
     supabase
       .from("signups")
       .select(
-        "id, status, guest_count, attended, added_by_committee, created_at, lunches(lunch_date, start_time, title, status, venues(name)), memberships(first_name, last_name, email)"
+        "id, status, guest_count, attended, added_by_committee, created_at, lunches(lunch_date, start_time, title, status, venues(name)), memberships(first_name, last_name, full_name, email), signup_guests(guests(first_name, last_name, email))"
       )
       .eq("club_id", club.id)
       .neq("status", "cancelled")
@@ -198,22 +254,35 @@ async function attendanceCsv(supabase: Supabase, { club }: ClubContext): Promise
       "First name",
       "Last name",
       "Email",
+      "Type",
+      "Brought by",
       "Place",
       "Guests",
       "Added by committee",
       "Attended",
     ],
-    rows: signups.map((s) => [
-      s.lunches.lunch_date,
-      s.lunches.title,
-      s.lunches.venues?.name,
-      s.memberships?.first_name,
-      s.memberships?.last_name,
-      s.memberships?.email,
-      s.status,
-      s.guest_count,
-      s.added_by_committee,
-      s.attended == null ? "" : s.attended,
-    ]),
+    rows: signups.flatMap((s) => {
+      const lunch = [s.lunches.lunch_date, s.lunches.title, s.lunches.venues?.name];
+      const came = s.attended == null ? "" : s.attended;
+      return [
+        [
+          ...lunch,
+          s.memberships?.first_name,
+          s.memberships?.last_name,
+          s.memberships?.email,
+          "Member",
+          "",
+          s.status,
+          s.guest_count,
+          s.added_by_committee,
+          came,
+        ],
+        ...s.signup_guests.flatMap(({ guests: g }) =>
+          g
+            ? [[...lunch, g.first_name, g.last_name, g.email, "Guest", s.memberships?.full_name, s.status, "", "", came]]
+            : []
+        ),
+      ];
+    }),
   };
 }

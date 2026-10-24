@@ -1,9 +1,13 @@
 import { fmtDate, fmtTime } from "@/lib/format";
-import type { Lunch, Membership, Signup } from "@/lib/types";
+import { guestNames } from "@/lib/guests";
+import type { Guest, Lunch, Membership, Signup } from "@/lib/types";
 
-/** A confirmed sign-up with the member fields the restaurant needs. */
+type GuestFields = Pick<Guest, "full_name" | "dietary_notes">;
+
+/** A confirmed sign-up with the member and guest fields the restaurant needs. */
 export type RestaurantSignup = Pick<Signup, "guest_count" | "guest_names"> & {
   memberships: Pick<Membership, "full_name" | "dietary_notes"> | null;
+  guests?: GuestFields[];
 };
 
 export type RestaurantLunch = Pick<
@@ -18,6 +22,8 @@ export type RestaurantRow = {
   guests: number;
   guestNames: string | null;
   dietary: string | null;
+  /** Guests of this member who have dietary notes. */
+  guestDietary: { name: string; notes: string }[];
 };
 
 /** Confirmed members in sign-up order. */
@@ -25,9 +31,19 @@ export function restaurantRows(confirmed: RestaurantSignup[]): RestaurantRow[] {
   return confirmed.map((s) => ({
     name: s.memberships?.full_name || "Unknown",
     guests: s.guest_count,
-    guestNames: s.guest_names?.trim() || null,
+    guestNames: guestNames(s.guests, s.guest_names),
     dietary: s.memberships?.dietary_notes?.trim() || null,
+    guestDietary: (s.guests ?? [])
+      .filter((g) => g.dietary_notes?.trim())
+      .map((g) => ({ name: g.full_name, notes: g.dietary_notes!.trim() })),
   }));
+}
+
+/** The member's notes and their guests' notes, in one line for the PDF. */
+export function dietaryLine(row: RestaurantRow) {
+  return [row.dietary, ...row.guestDietary.map((g) => `${g.name}: ${g.notes}`)]
+    .filter(Boolean)
+    .join("; ");
 }
 
 /** Seats needed: each member plus their guests. */
@@ -53,15 +69,16 @@ export function restaurantListText(
   lunch: RestaurantLunch,
   rows: RestaurantRow[]
 ) {
-  const dietary = rows.filter((r) => r.dietary);
+  const dietary = rows.flatMap((r) => [
+    ...(r.dietary ? [`- ${r.name}: ${r.dietary}`] : []),
+    ...r.guestDietary.map((g) => `- ${g.name} (guest of ${r.name}): ${g.notes}`),
+  ]);
   return [
     lunch.title,
     lunchWhenWhere(lunch),
     `Final headcount: ${headcount(rows)}`,
     "",
     ...rows.map((r) => [r.name, guestLabel(r)].filter(Boolean).join(" ")),
-    ...(dietary.length
-      ? ["", "Dietary:", ...dietary.map((r) => `- ${r.name}: ${r.dietary}`)]
-      : []),
+    ...(dietary.length ? ["", "Dietary:", ...dietary] : []),
   ].join("\n");
 }

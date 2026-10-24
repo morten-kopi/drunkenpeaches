@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { fmtDateTime, slugify } from "@/lib/format";
 import { restaurantRows, type RestaurantSignup } from "@/lib/restaurant-list";
 import { restaurantListPdf } from "@/lib/restaurant-list-pdf";
-import type { Lunch } from "@/lib/types";
+import { guestsBySignup } from "@/lib/guests";
+import type { Lunch, LunchGuest } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -32,11 +33,18 @@ export async function GET(
 
   const { data: signupData } = await supabase
     .from("signups")
-    .select("guest_count, guest_names, memberships(full_name, dietary_notes)")
+    .select("id, guest_count, guest_names, memberships(full_name, dietary_notes)")
     .eq("lunch_id", id)
     .eq("status", "confirmed")
     .order("created_at");
-  const rows = restaurantRows((signupData ?? []) as unknown as RestaurantSignup[]);
+  const { data: guestData } = await supabase.rpc("lunch_guests", { p_lunch: id });
+  const guests = guestsBySignup(guestData as LunchGuest[] | null);
+  const rows = restaurantRows(
+    ((signupData ?? []) as unknown as (RestaurantSignup & { id: string })[]).map((s) => ({
+      ...s,
+      guests: guests.get(s.id),
+    }))
+  );
 
   const pdf = await restaurantListPdf({
     clubName: ctx.club.name,

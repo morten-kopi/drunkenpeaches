@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { fmtDateShort } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,14 +10,24 @@ export interface AttendanceItem {
   title: string;
   status: string;
   attended: boolean | null;
+  /** E.g. "guest of John Smith", for lunches someone came to as a guest. */
+  note?: string;
+  /** Link for the lunch title. */
+  href?: string;
 }
 
-/** Attendance timeline — shared by member-detail and the profile screen. */
-export function AttendanceHistory({ items }: { items: AttendanceItem[] }) {
+/** Attendance timeline: member detail, guest detail and the profile screen. */
+export function AttendanceHistory({
+  items,
+  title = "Attendance",
+}: {
+  items: AttendanceItem[];
+  title?: string;
+}) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Attendance</CardTitle>
+        <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
@@ -31,7 +42,19 @@ export function AttendanceHistory({ items }: { items: AttendanceItem[] }) {
                 <span className="text-xs tabular-nums text-muted-foreground">
                   {fmtDateShort(h.date)}
                 </span>
-                <span className="text-sm font-medium">{h.title}</span>
+                {h.href ? (
+                  <Link
+                    href={h.href}
+                    className="text-sm font-medium underline-offset-4 hover:underline"
+                  >
+                    {h.title}
+                  </Link>
+                ) : (
+                  <span className="text-sm font-medium">{h.title}</span>
+                )}
+                {h.note ? (
+                  <Badge variant="outline">{h.note}</Badge>
+                ) : null}
                 <StatusBadge status={h.status} />
                 {h.attended === true ? (
                   <Badge tone="success" dot>

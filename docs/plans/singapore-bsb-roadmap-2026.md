@@ -258,9 +258,10 @@ a lunch with no account” would be a rewrite, not a Singapore v1.
 - Optional one-way CSV import (name, email, dietary) to bootstrap
   lunch accounts from that sheet. No sync-back, no dues, no
   nomination workflow.
-- Guests never become `memberships` rows. They stay
-  `guest_count` / `guest_names` on the host’s signup (already the
-  model).
+- Guests never become `memberships` rows. Since 00008 (2026-10-24)
+  each guest is a record in `guests` (name, email, dietary notes),
+  linked to the host’s signup, so the committee can see who came and
+  make a guest a member with their guest lunches kept.
 - Soften the CRM posture in the Singapore UI: “People who can
   register,” not a member directory that looks like WildApricot
   2.0. Whether members can see the roster is an open question

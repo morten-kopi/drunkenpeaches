@@ -24,6 +24,7 @@ import {
   validatePhaseOrder,
 } from "@/lib/signup-phases";
 import { todayInZone } from "@/lib/format";
+import { parseGuests } from "@/lib/guests";
 import type { Club, Lunch, PromotedMember } from "@/lib/types";
 
 // ---------- helpers ----------------------------------------------------------
@@ -210,7 +211,7 @@ async function loadUpcomingReleased(ctx: Ctx) {
   return (data ?? []) as Lunch[];
 }
 
-export type FormState = { error?: string };
+export type FormState = { error?: string; success?: boolean };
 
 export async function createLunchAction(
   slug: string,
@@ -458,8 +459,8 @@ export async function signUpAction(
 ): Promise<FormState> {
   try {
     const ctx = await requireMember(slug);
-    const guestCount = Number(formData.get("guestCount") ?? 0) || 0;
-    const guestNames = String(formData.get("guestNames") ?? "").trim() || null;
+    const guests = parseGuests(formData);
+    const guestCount = guests.length;
 
     const upcoming = await loadUpcomingReleased(ctx);
     const lunchRow =
@@ -479,12 +480,8 @@ export async function signUpAction(
     if (blocked) return { error: blocked };
 
     const { data: signup, error } = await ctx.supabase.rpc(
-      "sign_up_for_lunch",
-      {
-        p_lunch: lunchId,
-        p_guest_count: guestCount,
-        p_guest_names: guestNames,
-      }
+      "sign_up_with_guests",
+      { p_lunch: lunchId, p_guests: guests }
     );
     if (error) return { error: error.message };
 
@@ -522,7 +519,8 @@ export async function updateMyGuestsAction(
 ): Promise<FormState> {
   try {
     const ctx = await requireMember(slug);
-    const nextGuestCount = Number(formData.get("guestCount") ?? 0) || 0;
+    const guests = parseGuests(formData);
+    const nextGuestCount = guests.length;
     const { data: lunchRow } = await ctx.supabase
       .from("lunches")
       .select("*")
@@ -544,12 +542,12 @@ export async function updateMyGuestsAction(
     });
     if (blocked) return { error: blocked };
 
-    const { error } = await ctx.supabase.rpc("update_my_guests", {
+    const { data: promoted, error } = await ctx.supabase.rpc("set_my_guests", {
       p_lunch: lunchId,
-      p_guest_count: nextGuestCount,
-      p_guest_names: String(formData.get("guestNames") ?? "").trim() || null,
+      p_guests: guests,
     });
     if (error) return { error: error.message };
+    await notifyPromoted(ctx, lunchId, promoted as PromotedMember[]);
   } catch (e) {
     return { error: errorMessage(e) };
   }
@@ -580,27 +578,27 @@ export async function cancelMySignupAction(
 
 // ---------- committee: manual overrides ----------------------------------------
 
-/** Someone phoned the secretary — committee adds them by hand. */
+/** Someone phoned the secretary: committee adds them, with any guests, by hand. */
 export async function committeeAddSignupAction(
   slug: string,
   lunchId: string,
+  _prev: FormState,
   formData: FormData
-) {
-  let err: string | null = null;
+): Promise<FormState> {
   try {
     const ctx = await requireCommittee(slug);
     const membershipId = String(formData.get("membershipId") ?? "");
-    if (!membershipId) throw new Error("Pick a member");
+    if (!membershipId) return { error: "Pick a member" };
     const { data: signup, error } = await ctx.supabase.rpc(
-      "committee_add_signup",
+      "committee_add_signup_with_guests",
       {
         p_lunch: lunchId,
         p_membership: membershipId,
-        p_guest_count: Number(formData.get("guestCount") ?? 0) || 0,
+        p_guests: parseGuests(formData),
         p_force: formData.get("force") === "on",
       }
     );
-    if (error) throw new Error(error.message);
+    if (error) return { error: error.message };
 
     const lunch = await getLunchForEmail(ctx, lunchId);
     const { data: m } = await ctx.supabase
@@ -627,10 +625,40 @@ export async function committeeAddSignupAction(
       }
     }
   } catch (e) {
-    err = errorMessage(e);
+    return { error: errorMessage(e) };
   }
   revalidatePath(lunchPath(slug, lunchId));
-  if (err) redirect(`${lunchPath(slug, lunchId)}?error=${encodeURIComponent(err)}`);
+  return {};
+}
+
+/**
+ * Committee changes the guests on anyone's signup. Ignores the cutoff, the
+ * guest date and the per-member limit; seats still count unless forced.
+ */
+export async function committeeSetGuestsAction(
+  slug: string,
+  lunchId: string,
+  signupId: string,
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  try {
+    const ctx = await requireCommittee(slug);
+    const { data: promoted, error } = await ctx.supabase.rpc(
+      "committee_set_guests",
+      {
+        p_signup: signupId,
+        p_guests: parseGuests(formData),
+        p_force: formData.get("force") === "on",
+      }
+    );
+    if (error) return { error: error.message };
+    await notifyPromoted(ctx, lunchId, promoted as PromotedMember[]);
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
+  revalidatePath(lunchPath(slug, lunchId));
+  return { success: true };
 }
 
 export async function committeeRemoveSignupAction(
