@@ -7,7 +7,7 @@ import {
   sendMembersOpenReminder,
   type Moment,
   type Recipient,
-  type ReminderLunch,
+  type EmailLunch,
 } from "@/lib/email";
 import { dateInZone, fmtDateShort, fmtDateTime, todayInZone } from "@/lib/format";
 import { addClubDays, lunchStartAt } from "@/lib/signup-phases";
@@ -125,7 +125,8 @@ export async function GET(request: NextRequest) {
       await admin.from("lunches").update({ [column]: null }).eq("id", lunch.id);
     }
 
-    const info: ReminderLunch = {
+    const emailClub = { id: lunch.club_id, name: club.name };
+    const info: EmailLunch = {
       id: lunch.id,
       clubSlug: club.slug,
       title: lunch.title,
@@ -146,7 +147,7 @@ export async function GET(request: NextRequest) {
       const members = await activeMembers(lunch.club_id);
       await settle("committee_reminder_sent_at", await sendCommitteeOpensReminder({
         recipients: members.filter((m) => m.role === "committee").map(toRecipient),
-        clubName: club.name,
+        club: emailClub,
         lunch: info,
         opens: moment(lunch.signup_opens_at),
         membersOpen: lunch.members_open_at ? moment(lunch.members_open_at) : null,
@@ -157,7 +158,7 @@ export async function GET(request: NextRequest) {
       const members = await activeMembers(lunch.club_id);
       await settle("members_reminder_sent_at", await sendMembersOpenReminder({
         recipients: members.map(toRecipient),
-        clubName: club.name,
+        club: emailClub,
         lunch: info,
         opens: moment(lunch.members_open_at),
         guests: policy.allowed
@@ -191,7 +192,7 @@ export async function GET(request: NextRequest) {
         const members = await activeMembers(lunch.club_id);
         await settle("guests_reminder_sent_at", await sendGuestsOpenReminder({
           recipients: members.map(toRecipient),
-          clubName: club.name,
+          club: emailClub,
           lunch: info,
           opens: moment(lunch.guests_open_at),
           maxPerMember: policy.maxPerMember,
@@ -225,7 +226,7 @@ export async function GET(request: NextRequest) {
       });
       await settle(
         "reminder_sent_at",
-        await sendLunchReminder({ recipients, clubName: club.name, lunch: info })
+        await sendLunchReminder({ recipients, club: emailClub, lunch: info })
       );
     }
   }

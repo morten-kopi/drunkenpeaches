@@ -12,9 +12,12 @@ import {
   sendSignupConfirmed,
   sendWaitlisted,
   sendPromoted,
+  sendGuestConfirmed,
   sendLunchCancelled,
   sendLunchChanged,
+  type EmailLunch,
 } from "@/lib/email";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   fillMissingPhaseTimestamps,
   findNextOpenLunch,
@@ -23,22 +26,35 @@ import {
   memberSignupBlockReason,
   validatePhaseOrder,
 } from "@/lib/signup-phases";
-import { todayInZone } from "@/lib/format";
+import { fmtDate, todayInZone } from "@/lib/format";
 import { parseGuests } from "@/lib/guests";
-import type { Club, Lunch, PromotedMember } from "@/lib/types";
+import type { Club, Lunch, LunchGuest, PromotedMember } from "@/lib/types";
 
 // ---------- helpers ----------------------------------------------------------
 
 type Ctx = Awaited<ReturnType<typeof requireMember>>;
 
+type LunchForEmail = Lunch & { venues: { name: string; address: string | null } | null };
+
 async function getLunchForEmail(ctx: Ctx, lunchId: string) {
   const { data } = await ctx.supabase
     .from("lunches")
-    .select("*, venues(name)")
+    .select("*, venues(name, address)")
     .eq("id", lunchId)
     .single();
-  const lunch = data as (Lunch & { venues: { name: string } | null }) | null;
-  return lunch;
+  return data as LunchForEmail | null;
+}
+
+function emailLunch(ctx: Ctx, lunch: LunchForEmail): EmailLunch {
+  return {
+    id: lunch.id,
+    clubSlug: ctx.club.slug,
+    title: lunch.title,
+    lunchDate: lunch.lunch_date,
+    startTime: lunch.start_time,
+    venueName: lunch.venues?.name ?? null,
+    venueAddress: lunch.venues?.address ?? null,
+  };
 }
 
 async function notifyPromoted(
@@ -54,12 +70,114 @@ async function notifyPromoted(
       sendPromoted({
         to: p.email,
         name: p.full_name,
-        clubName: ctx.club.name,
-        lunchTitle: lunch.title,
-        lunchDate: lunch.lunch_date,
-        venueName: lunch.venues?.name,
+        club: ctx.club,
+        lunch: emailLunch(ctx, lunch),
       })
     )
+  );
+  // Their guests got seats too.
+  await notifyConfirmedGuests(ctx, lunchId);
+}
+
+/**
+ * Write to every guest on this lunch whose seat is confirmed and who hasn't
+ * heard yet. Each guest hears once per lunch: the row is marked before the
+ * email goes out, so two requests at once never both send. Only for released
+ * lunches that haven't happened.
+ */
+async function notifyConfirmedGuests(ctx: Ctx, lunchId: string) {
+  try {
+    const admin = createAdminClient();
+    const { data: lunchData } = await admin
+      .from("lunches")
+      .select("*, venues(name, address)")
+      .eq("id", lunchId)
+      .eq("club_id", ctx.club.id)
+      .single();
+    const lunch = lunchData as LunchForEmail | null;
+    if (
+      !lunch ||
+      lunch.status !== "released" ||
+      lunch.lunch_date < todayInZone(ctx.club.timezone)
+    ) {
+      return;
+    }
+
+    const { data: waiting, error } = await admin
+      .from("signup_guests")
+      .select("id, guests(full_name, email), signups!inner(lunch_id, status, memberships(full_name))")
+      .eq("signups.lunch_id", lunchId)
+      .eq("signups.status", "confirmed")
+      .is("confirmation_sent_at", null);
+    if (error) throw error;
+    if (!waiting?.length) return;
+
+    const { data: claimed } = await admin
+      .from("signup_guests")
+      .update({ confirmation_sent_at: new Date().toISOString() })
+      .in("id", waiting.map((w) => w.id))
+      .is("confirmation_sent_at", null)
+      .select("id");
+    const mine = new Set((claimed ?? []).map((c) => c.id as string));
+
+    const failed: string[] = [];
+    await Promise.all(
+      waiting
+        .filter((w) => mine.has(w.id))
+        .map(async (w) => {
+          const guest = w.guests as unknown as { full_name: string; email: string } | null;
+          const host = (w.signups as unknown as { memberships: { full_name: string } | null })
+            .memberships;
+          if (!guest) return;
+          const sent = await sendGuestConfirmed({
+            to: guest.email,
+            name: guest.full_name,
+            host: host?.full_name ?? "A member",
+            club: ctx.club,
+            lunch: emailLunch(ctx, lunch),
+          });
+          if (!sent) failed.push(w.id);
+        })
+    );
+    // Not sent: try again the next time something happens on this lunch.
+    if (failed.length) {
+      await admin.from("signup_guests").update({ confirmation_sent_at: null }).in("id", failed);
+    }
+  } catch (err) {
+    // A missed guest email must never break the sign-up itself.
+    console.error("[email] guest confirmations", err);
+  }
+}
+
+/**
+ * Guests who were emailed that their seat is confirmed, so they also hear
+ * when the lunch changes or is cancelled. Committee callers only.
+ */
+async function toldGuests(ctx: Ctx, lunchId: string) {
+  const { data, error } = await ctx.supabase
+    .from("signup_guests")
+    .select("guests(full_name, email), signups!inner(lunch_id, status)")
+    .eq("signups.lunch_id", lunchId)
+    .eq("signups.status", "confirmed")
+    .not("confirmation_sent_at", "is", null);
+  if (error) {
+    console.error("[email] guests to tell", error);
+    return [];
+  }
+  return (data ?? []).flatMap((r) => {
+    const g = r.guests as unknown as { full_name: string; email: string } | null;
+    return g ? [g] : [];
+  });
+}
+
+/** "Jane Doe, Tom Lee": the guests on a signup, for the confirmation email. */
+async function guestNamesOf(ctx: Ctx, lunchId: string, signupId: string) {
+  const { data } = await ctx.supabase.rpc("lunch_guests", { p_lunch: lunchId });
+  return (
+    ((data ?? []) as LunchGuest[])
+      .filter((g) => g.signup_id === signupId)
+      .map((g) => g.full_name)
+      .join(", ") || null
   );
 }
 
@@ -260,13 +378,15 @@ export async function updateLunchAction(
     if (error) return { error: error.message };
 
     // Notify attendees if a released lunch materially changed.
-    if (before.status === "released") {
+    const after = await getLunchForEmail(ctx, lunchId);
+    if (before.status === "released" && after) {
       const changes: string[] = [];
       if (before.lunch_date !== row.lunch_date)
-        changes.push(`New date: ${row.lunch_date}`);
+        changes.push(`New date: ${fmtDate(row.lunch_date)}`);
       if (before.start_time.slice(0, 5) !== row.start_time.slice(0, 5))
-        changes.push(`New time: ${row.start_time}`);
-      if ((before.venue_id ?? null) !== row.venue_id) changes.push("New venue");
+        changes.push(`New time: ${row.start_time.slice(0, 5)}`);
+      if ((before.venue_id ?? null) !== row.venue_id)
+        changes.push(`New venue: ${after.venues?.name ?? "to be announced"}`);
       if (changes.length) {
         const { data: affected } = await ctx.supabase
           .from("signups")
@@ -283,12 +403,24 @@ export async function updateLunchAction(
             return sendLunchChanged({
               to: m.email,
               name: m.full_name,
-              clubName: ctx.club.name,
-              lunchTitle: row.title,
-              lunchDate: row.lunch_date,
-              changeSummary: changes.join("<br/>"),
+              club: ctx.club,
+              lunch: emailLunch(ctx, after),
+              changes,
             });
           })
+        );
+        // Guests were sent the old details, so they hear too.
+        await Promise.all(
+          (await toldGuests(ctx, lunchId)).map((g) =>
+            sendLunchChanged({
+              to: g.email,
+              name: g.full_name,
+              club: ctx.club,
+              lunch: emailLunch(ctx, after),
+              changes,
+              forGuest: true,
+            })
+          )
         );
       }
     }
@@ -326,7 +458,9 @@ export async function releaseLunchAction(slug: string, lunchId: string) {
       })
       .eq("id", lunchId);
     if (error) throw new Error(error.message);
-    // Note: releasing does NOT email members in v1 — they see it on login.
+    // Releasing does not email members; they see it on login. Guests the
+    // committee seated while it was a draft hear now.
+    await notifyConfirmedGuests(ctx, lunchId);
   } catch (e) {
     err = errorMessage(e);
   }
@@ -358,6 +492,8 @@ export async function cancelLunchAction(slug: string, lunchId: string) {
     const ctx = await requireCommittee(slug);
     const lunch = await getLunchForEmail(ctx, lunchId);
     if (!lunch) throw new Error("Lunch not found");
+    // Read before cancelling: afterwards no signup is confirmed.
+    const guests = await toldGuests(ctx, lunchId);
 
     const { data: affected, error } = await ctx.supabase.rpc("cancel_lunch", {
       p_lunch: lunchId,
@@ -365,13 +501,18 @@ export async function cancelLunchAction(slug: string, lunchId: string) {
     if (error) throw new Error(error.message);
 
     await Promise.all(
-      ((affected ?? []) as PromotedMember[]).map((p) =>
+      [
+        ...((affected ?? []) as PromotedMember[]).map((p) => ({
+          email: p.email,
+          full_name: p.full_name,
+        })),
+        ...guests,
+      ].map((p) =>
         sendLunchCancelled({
           to: p.email,
           name: p.full_name,
-          clubName: ctx.club.name,
-          lunchTitle: lunch.title,
-          lunchDate: lunch.lunch_date,
+          club: ctx.club,
+          lunch: emailLunch(ctx, lunch),
         })
       )
     );
@@ -490,16 +631,16 @@ export async function signUpAction(
       const base = {
         to: ctx.user.email,
         name: ctx.membership.full_name,
-        clubName: ctx.club.name,
-        lunchTitle: lunch.title,
-        lunchDate: lunch.lunch_date,
+        club: ctx.club,
+        lunch: emailLunch(ctx, lunch),
       };
       if (signup.status === "confirmed") {
         await sendSignupConfirmed({
           ...base,
-          venueName: lunch.venues?.name,
           guestCount,
+          guestNames: await guestNamesOf(ctx, lunchId, signup.id),
         });
+        await notifyConfirmedGuests(ctx, lunchId);
       } else {
         await sendWaitlisted(base);
       }
@@ -548,6 +689,7 @@ export async function updateMyGuestsAction(
     });
     if (error) return { error: error.message };
     await notifyPromoted(ctx, lunchId, promoted as PromotedMember[]);
+    await notifyConfirmedGuests(ctx, lunchId);
   } catch (e) {
     return { error: errorMessage(e) };
   }
@@ -610,16 +752,16 @@ export async function committeeAddSignupAction(
       const base = {
         to: m.email,
         name: m.full_name,
-        clubName: ctx.club.name,
-        lunchTitle: lunch.title,
-        lunchDate: lunch.lunch_date,
+        club: ctx.club,
+        lunch: emailLunch(ctx, lunch),
       };
       if (signup.status === "confirmed") {
         await sendSignupConfirmed({
           ...base,
-          venueName: lunch.venues?.name,
           guestCount: signup.guest_count,
+          guestNames: await guestNamesOf(ctx, lunchId, signup.id),
         });
+        await notifyConfirmedGuests(ctx, lunchId);
       } else {
         await sendWaitlisted(base);
       }
@@ -654,6 +796,7 @@ export async function committeeSetGuestsAction(
     );
     if (error) return { error: error.message };
     await notifyPromoted(ctx, lunchId, promoted as PromotedMember[]);
+    await notifyConfirmedGuests(ctx, lunchId);
   } catch (e) {
     return { error: errorMessage(e) };
   }

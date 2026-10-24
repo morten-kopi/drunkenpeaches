@@ -31,7 +31,7 @@ Architecture, data model and access rules are in `docs/architecture.md`. Read it
 
 ## Email
 
-- All emails are in `lib/email.ts`. Without `RESEND_API_KEY` they are skipped, and the log records only the recipient and subject.
+- All emails are sent from `lib/email.ts`. Their default wording, placeholders and renderer are in `lib/email-templates.ts`; the committee's edits are rows in `email_templates`. A new email needs an entry in `EMAILS` so it shows in Settings. Without `RESEND_API_KEY` emails are skipped, and the log records only the recipient and subject.
 - Sign emails with the club's name, never a hard-coded one.
 
 ## Scope

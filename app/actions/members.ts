@@ -51,7 +51,7 @@ export async function resendInviteAction(slug: string, membershipId: string) {
     const admin = createAdminClient();
     const { data: m } = await admin
       .from("memberships")
-      .select("email, status")
+      .select("email, status, full_name")
       .eq("id", membershipId)
       .eq("club_id", club.id)
       .single();
@@ -67,7 +67,7 @@ export async function resendInviteAction(slug: string, membershipId: string) {
     if (!props) throw new Error("Could not generate an invite link");
 
     const inviteLink = `${appUrl()}/auth/confirm?token_hash=${props.hashed_token}&type=${linkErr ? "magiclink" : "invite"}&next=${encodeURIComponent("/auth/set-password")}`;
-    await sendInviteEmail({ to: m.email, clubName: club.name, inviteLink });
+    await sendInviteEmail({ to: m.email, name: m.full_name, club, inviteLink });
   } catch (e) {
     err = errorMessage(e);
   }
