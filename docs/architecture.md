@@ -114,8 +114,19 @@ layer sends the notification emails.
 
 ### Email (Resend, implemented)
 
-Invite, sign-up confirmed, waitlisted, promoted from waitlist, lunch
-changed/cancelled, password reset. A daily Vercel cron
+Invite, sign-up confirmed, waitlisted, promoted from waitlist, guest
+confirmed (to the guest, once per lunch, marked by
+`signup_guests.confirmation_sent_at`), lunch changed/cancelled, password
+reset.
+
+The wording of every club email (all but password reset) is editable by the
+committee in Settings → Emails. Defaults, placeholders, the "when / to whom"
+copy and the renderer live in `lib/email-templates.ts`; a club's edits are
+rows in `email_templates` (00009), one per edited email, and an email without
+a row follows the defaults. The button, link and signature are added by
+`lib/email.ts` and can't be edited. Wording identical to the default is not
+stored. Sending reads the table with the service role and falls back to the
+default wording if it can't. A daily Vercel cron
 (`/api/cron/reminders`, 09:00 Singapore) sends four reminders per released
 lunch, each the day before on the club's clock and each once (migration
 00007 adds a `*_reminder_sent_at` column per reminder):

@@ -90,6 +90,11 @@ export async function inviteToClub(
     .is("membership_id", null);
   if (linkGuestErr) console.error("[invite] could not link guest record", linkGuestErr);
 
-  await sendInviteEmail({ to: email, clubName: club.name, inviteLink });
+  await sendInviteEmail({
+    to: email,
+    name: `${person.firstName} ${person.lastName}`.trim(),
+    club,
+    inviteLink,
+  });
   return { membershipId: saved.id as string };
 }
