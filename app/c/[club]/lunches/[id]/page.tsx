@@ -111,7 +111,7 @@ export default async function LunchDetailPage({
       id: g.guest_id,
       full_name: g.full_name,
     }));
-  const guestText = (s: Signup) => guestNames(guestMap.get(s.id), s.guest_names);
+  const guestText = (s: Signup) => guestNames(guestMap.get(s.id));
 
   const confirmed = signups.filter((s) => s.status === "confirmed");
   const waitlisted = signups.filter((s) => s.status === "waitlisted");
@@ -313,7 +313,7 @@ export default async function LunchDetailPage({
               ? {
                   status: mySignup.status,
                   guest_count: mySignup.guest_count,
-                  guest_names: guestText(mySignup),
+                  guestNames: guestText(mySignup),
                 }
               : null
           }

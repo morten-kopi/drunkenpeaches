@@ -33,7 +33,7 @@ export async function GET(
 
   const { data: signupData } = await supabase
     .from("signups")
-    .select("id, guest_count, guest_names, memberships(full_name, dietary_notes)")
+    .select("id, guest_count, memberships(full_name, dietary_notes)")
     .eq("lunch_id", id)
     .eq("status", "confirmed")
     .order("created_at");

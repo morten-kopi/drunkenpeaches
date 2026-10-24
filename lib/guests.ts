@@ -43,14 +43,7 @@ export function guestsBySignup(rows: LunchGuest[] | null) {
   return map;
 }
 
-/**
- * Guest names for a signup. Signups from before guests were records only
- * have the free-text names.
- */
-export function guestNames(
-  guests: Pick<LunchGuest, "full_name">[] | undefined,
-  legacyNames: string | null
-) {
-  if (guests?.length) return guests.map((g) => g.full_name).join(", ");
-  return legacyNames?.trim() || null;
+/** "Jane Doe, Tom Lee", or null without guests. */
+export function guestNames(guests: Pick<LunchGuest, "full_name">[] | undefined) {
+  return guests?.length ? guests.map((g) => g.full_name).join(", ") : null;
 }

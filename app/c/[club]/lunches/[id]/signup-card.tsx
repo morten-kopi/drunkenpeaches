@@ -39,7 +39,7 @@ interface SignupCardProps {
     status: string;
     guest_count: number;
     /** Names of the guests on the signup, for display. */
-    guest_names: string | null;
+    guestNames: string | null;
   } | null;
   /** The guests on my signup, as records the picker can keep. */
   myGuests: GuestOption[];
@@ -158,7 +158,7 @@ export function SignupCard({
             <p className="text-sm text-muted-foreground">
               Bringing {mySignup.guest_count} guest
               {mySignup.guest_count > 1 ? "s" : ""}
-              {mySignup.guest_names ? `: ${mySignup.guest_names}` : ""}.
+              {mySignup.guestNames ? `: ${mySignup.guestNames}` : ""}.
             </p>
           ) : guestsLater ? (
             <p className="text-sm text-muted-foreground">{guestsLaterNote}</p>
