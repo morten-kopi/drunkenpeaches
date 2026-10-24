@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const FILES = [
   { kind: "members", label: "Members" },
+  { kind: "guests", label: "Guests" },
   { kind: "venues", label: "Venues" },
   { kind: "lunches", label: "Lunches" },
   { kind: "attendance", label: "Attendance" },
@@ -16,8 +17,8 @@ export function ExportCard({ slug }: { slug: string }) {
         <CardTitle>Export</CardTitle>
         <p className="text-sm font-normal text-muted-foreground">
           CSV files that open in Excel or Google Sheets. Lunches has one row per
-          lunch. Attendance has one row per person per lunch, with whether they
-          came.
+          lunch. Attendance has one row per person per lunch, members and
+          guests, with who brought each guest and whether they came.
         </p>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-2">

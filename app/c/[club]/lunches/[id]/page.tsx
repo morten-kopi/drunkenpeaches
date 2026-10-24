@@ -7,7 +7,6 @@ import {
   LockIcon,
   MapPinIcon,
   PencilIcon,
-  UserPlusIcon,
 } from "lucide-react";
 import { getClubContext } from "@/lib/club-context";
 import { createClient } from "@/lib/supabase/server";
@@ -21,10 +20,14 @@ import {
 import {
   guestPolicy,
   seatsTaken,
+  type GuestOption,
   type Lunch,
+  type LunchGuest,
   type Membership,
   type Signup,
 } from "@/lib/types";
+import { guestNames, guestsBySignup } from "@/lib/guests";
+import { fetchAll } from "@/lib/fetch-all";
 import {
   findNextOpenLunch,
   resolveSignupPhase,
@@ -38,7 +41,6 @@ import {
   deleteDraftLunchAction,
   setCapacityAction,
   setCutoffAction,
-  committeeAddSignupAction,
   committeeRemoveSignupAction,
   markAttendanceAction,
 } from "@/app/actions/lunches";
@@ -49,24 +51,18 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { StatusBadge } from "@/components/status-badge";
 import { ErrorBanner } from "@/components/error-banner";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { SeatMeter } from "@/components/seat-meter";
 import { CopyButton } from "@/components/copy-button";
 import { SignupCard } from "./signup-card";
+import { EditGuestsDialog } from "./edit-guests-dialog";
+import { CommitteeAddForm } from "./committee-add-form";
 
 type SignupRow = Signup & {
   memberships: Pick<
@@ -104,6 +100,18 @@ export default async function LunchDetailPage({
     .eq("lunch_id", id)
     .order("created_at");
   const signups = (signupData ?? []) as SignupRow[];
+
+  // Guest names for everyone; email and dietary notes for the committee.
+  const { data: lunchGuestData } = await supabase.rpc("lunch_guests", {
+    p_lunch: id,
+  });
+  const guestMap = guestsBySignup(lunchGuestData as LunchGuest[] | null);
+  const guestsOf = (signupId: string): GuestOption[] =>
+    (guestMap.get(signupId) ?? []).map((g) => ({
+      id: g.guest_id,
+      full_name: g.full_name,
+    }));
+  const guestText = (s: Signup) => guestNames(guestMap.get(s.id), s.guest_names);
 
   const confirmed = signups.filter((s) => s.status === "confirmed");
   const waitlisted = signups.filter((s) => s.status === "waitlisted");
@@ -152,9 +160,40 @@ export default async function LunchDetailPage({
   );
   const addable = roster.filter((m) => !signedUpIds.has(m.id));
 
+  // Guests each member has brought before, for the committee's guest picker.
+  const previousByMember: Record<string, GuestOption[]> = {};
+  if (ctx.isCommittee) {
+    type Link = {
+      guests: { id: string; full_name: string; membership_id: string | null } | null;
+      signups: { membership_id: string } | null;
+    };
+    const links = await fetchAll<Link>((from, to) =>
+      supabase
+        .from("signup_guests")
+        .select("guests(id, full_name, membership_id), signups(membership_id)")
+        .eq("club_id", ctx.club.id)
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(from, to)
+    );
+    for (const { guests: g, signups: host } of links) {
+      if (!g || !host || g.membership_id) continue;
+      const list = (previousByMember[host.membership_id] ??= []);
+      if (!list.some((o) => o.id === g.id)) list.push({ id: g.id, full_name: g.full_name });
+    }
+  }
+  const { data: myPreviousData } =
+    lunch.status === "released"
+      ? await supabase.rpc("previous_guests", { p_membership: ctx.membership.id })
+      : { data: [] };
+  const myPreviousGuests = ((myPreviousData ?? []) as GuestOption[]).map((g) => ({
+    id: g.id,
+    full_name: g.full_name,
+  }));
+
   const restaurantList = restaurantListText(
     { ...lunch, venueName: lunch.venues?.name ?? null },
-    restaurantRows(confirmed)
+    restaurantRows(confirmed.map((s) => ({ ...s, guests: guestMap.get(s.id) })))
   );
 
   return (
@@ -274,10 +313,12 @@ export default async function LunchDetailPage({
               ? {
                   status: mySignup.status,
                   guest_count: mySignup.guest_count,
-                  guest_names: mySignup.guest_names,
+                  guest_names: guestText(mySignup),
                 }
               : null
           }
+          myGuests={mySignup ? guestsOf(mySignup.id) : []}
+          previousGuests={myPreviousGuests}
         />
       ) : null}
 
@@ -321,7 +362,7 @@ export default async function LunchDetailPage({
                                 <Badge variant="secondary" className="h-4">
                                   +{s.guest_count} guest
                                   {s.guest_count > 1 ? "s" : ""}
-                                  {s.guest_names ? ` · ${s.guest_names}` : ""}
+                                  {guestText(s) ? ` · ${guestText(s)}` : ""}
                                 </Badge>
                               ) : null}
                               {s.added_by_committee ? (
@@ -334,26 +375,48 @@ export default async function LunchDetailPage({
                         </div>
                       </div>
                       {ctx.isCommittee && lunch.status === "released" ? (
-                        <form
-                          action={committeeRemoveSignupAction.bind(
-                            null,
-                            slug,
-                            lunch.id,
-                            s.id
-                          )}
-                        >
-                          <ConfirmSubmit
-                            confirmTitle="Remove attendee?"
-                            confirmMessage={`Remove ${s.memberships?.full_name} from this lunch? If it's full, the waitlist is promoted.`}
-                            variant="destructive"
-                            size="sm"
+                        <div className="flex shrink-0 gap-1">
+                          <EditGuestsDialog
+                            slug={slug}
+                            lunchId={lunch.id}
+                            signupId={s.id}
+                            memberName={s.memberships?.full_name ?? "member"}
+                            guests={guestsOf(s.id)}
+                            options={previousByMember[s.membership_id] ?? []}
+                            maxPerMember={policy.maxPerMember}
+                            checksSeats
+                          />
+                          <form
+                            action={committeeRemoveSignupAction.bind(
+                              null,
+                              slug,
+                              lunch.id,
+                              s.id
+                            )}
                           >
-                            Remove
-                          </ConfirmSubmit>
-                        </form>
+                            <ConfirmSubmit
+                              confirmTitle="Remove attendee?"
+                              confirmMessage={`Remove ${s.memberships?.full_name} from this lunch? If it's full, the waitlist is promoted.`}
+                              variant="destructive"
+                              size="sm"
+                            >
+                              Remove
+                            </ConfirmSubmit>
+                          </form>
+                        </div>
                       ) : null}
                       {ctx.isCommittee && lunch.status === "completed" ? (
                         <div className="flex shrink-0 gap-1">
+                          <EditGuestsDialog
+                            slug={slug}
+                            lunchId={lunch.id}
+                            signupId={s.id}
+                            memberName={s.memberships?.full_name ?? "member"}
+                            guests={guestsOf(s.id)}
+                            options={previousByMember[s.membership_id] ?? []}
+                            maxPerMember={policy.maxPerMember}
+                            checksSeats={false}
+                          />
                           <form
                             action={markAttendanceAction.bind(
                               null,
@@ -432,23 +495,37 @@ export default async function LunchDetailPage({
                         </span>
                       </div>
                       {ctx.isCommittee ? (
-                        <form
-                          action={committeeRemoveSignupAction.bind(
-                            null,
-                            slug,
-                            lunch.id,
-                            s.id
-                          )}
-                        >
-                          <ConfirmSubmit
-                            confirmTitle="Remove from waitlist?"
-                            confirmMessage={`Remove ${s.memberships?.full_name} from the waitlist?`}
-                            variant="destructive"
-                            size="sm"
+                        <div className="flex shrink-0 gap-1">
+                          {lunch.status === "released" ? (
+                            <EditGuestsDialog
+                              slug={slug}
+                              lunchId={lunch.id}
+                              signupId={s.id}
+                              memberName={s.memberships?.full_name ?? "member"}
+                              guests={guestsOf(s.id)}
+                              options={previousByMember[s.membership_id] ?? []}
+                              maxPerMember={policy.maxPerMember}
+                              checksSeats={false}
+                            />
+                          ) : null}
+                          <form
+                            action={committeeRemoveSignupAction.bind(
+                              null,
+                              slug,
+                              lunch.id,
+                              s.id
+                            )}
                           >
-                            Remove
-                          </ConfirmSubmit>
-                        </form>
+                            <ConfirmSubmit
+                              confirmTitle="Remove from waitlist?"
+                              confirmMessage={`Remove ${s.memberships?.full_name} from the waitlist?`}
+                              variant="destructive"
+                              size="sm"
+                            >
+                              Remove
+                            </ConfirmSubmit>
+                          </form>
+                        </div>
                       ) : null}
                     </li>
                   ))}
@@ -600,56 +677,15 @@ export default async function LunchDetailPage({
                 <CardTitle>Manually add a member</CardTitle>
               </CardHeader>
               <CardContent>
-                <form
-                  action={committeeAddSignupAction.bind(null, slug, lunch.id)}
-                  className="grid gap-4 sm:grid-cols-[1fr_auto_auto] sm:items-end"
-                >
-                  <div className="space-y-2">
-                    <Label htmlFor="membershipId">Member</Label>
-                    <Select
-                      name="membershipId"
-                      required
-                      items={addable.map((m) => ({
-                        value: m.id,
-                        label: m.full_name || m.email,
-                      }))}
-                    >
-                      <SelectTrigger id="membershipId" className="w-full">
-                        <SelectValue placeholder="Pick a member…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {addable.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.full_name || m.email}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="addGuests">Guests</Label>
-                    <Input
-                      id="addGuests"
-                      name="guestCount"
-                      type="number"
-                      min={0}
-                      defaultValue={0}
-                      className="w-20"
-                    />
-                  </div>
-                  <Button type="submit" variant="outline">
-                    <UserPlusIcon />
-                    Add
-                  </Button>
-                  <label className="flex items-center gap-2 text-sm sm:col-span-3">
-                    <Checkbox name="force" />
-                    Seat even if full (override)
-                  </label>
-                </form>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Ignores the cutoff. Without the override, they join the
-                  waitlist when the lunch is full.
-                </p>
+                <CommitteeAddForm
+                  slug={slug}
+                  lunchId={lunch.id}
+                  members={addable.map((m) => ({
+                    id: m.id,
+                    label: m.full_name || m.email,
+                  }))}
+                  previousGuests={previousByMember}
+                />
               </CardContent>
             </Card>
           ) : null}

@@ -12,6 +12,7 @@ import {
 import { dateInZone, fmtDateShort, fmtDateTime, todayInZone } from "@/lib/format";
 import { addClubDays, lunchStartAt } from "@/lib/signup-phases";
 import { guestPolicy, seatsTaken, type Lunch, type Signup } from "@/lib/types";
+import { guestNames } from "@/lib/guests";
 
 export const dynamic = "force-dynamic";
 
@@ -203,17 +204,22 @@ export async function GET(request: NextRequest) {
     if (due(startsAt.toISOString()) && (await claim("reminder_sent_at"))) {
       const { data: attendees } = await admin
         .from("signups")
-        .select("guest_count, guest_names, memberships(email, first_name, full_name)")
+        .select(
+          "guest_count, guest_names, memberships(email, first_name, full_name), signup_guests(guests(full_name))"
+        )
         .eq("lunch_id", lunch.id)
         .eq("status", "confirmed");
       const recipients = (attendees ?? []).flatMap((a) => {
         const m = a.memberships as unknown as MemberRow | null;
         if (!m) return [];
+        const guests = (
+          a.signup_guests as unknown as { guests: { full_name: string } | null }[]
+        ).flatMap((sg) => (sg.guests ? [sg.guests] : []));
         return [
           {
             ...toRecipient(m),
             guestCount: a.guest_count as number,
-            guestNames: a.guest_names as string | null,
+            guestNames: guestNames(guests, a.guest_names as string | null),
           } satisfies Recipient & { guestCount: number; guestNames: string | null },
         ];
       });

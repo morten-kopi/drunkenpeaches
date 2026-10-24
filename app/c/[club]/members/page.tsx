@@ -12,6 +12,7 @@ import { DataList, type DataListColumn } from "@/components/data-list";
 import { StatusBadge } from "@/components/status-badge";
 import { ErrorBanner } from "@/components/error-banner";
 import { InviteForm } from "./invite-form";
+import { MembersTabs } from "./members-tabs";
 
 export const metadata: Metadata = { title: "Members" };
 
@@ -121,6 +122,8 @@ export default async function MembersPage({
         title="Members"
         description={`${activeCount} member${activeCount === 1 ? "" : "s"} in good standing`}
       />
+
+      {ctx.isCommittee ? <MembersTabs slug={slug} active="members" /> : null}
 
       {ctx.isCommittee ? <InviteForm slug={slug} /> : null}
 

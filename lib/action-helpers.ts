@@ -51,3 +51,11 @@ export function errorMessage(e: unknown) {
   }
   return "Something went wrong";
 }
+
+/**
+ * A value for PostgREST's ilike that matches exactly, ignoring case: % and _
+ * are literal. Some imported member emails have capitals.
+ */
+export function ilikeExact(value: string) {
+  return value.replace(/[\\%_]/g, "\\$&");
+}

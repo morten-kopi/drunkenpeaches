@@ -10,9 +10,9 @@ import {
   type FormState,
 } from "@/app/actions/lunches";
 import type { SignupPhase } from "@/lib/signup-phases";
+import type { GuestOption } from "@/lib/types";
+import { GuestPicker } from "@/components/guest-picker";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormError } from "@/components/form-error";
 import { StatusBadge } from "@/components/status-badge";
@@ -38,8 +38,13 @@ interface SignupCardProps {
   mySignup: {
     status: string;
     guest_count: number;
+    /** Names of the guests on the signup, for display. */
     guest_names: string | null;
   } | null;
+  /** The guests on my signup, as records the picker can keep. */
+  myGuests: GuestOption[];
+  /** Guests I have brought before. */
+  previousGuests: GuestOption[];
 }
 
 function ClosedCard({
@@ -88,6 +93,8 @@ export function SignupCard({
   nextOpenHref,
   nextOpenTitle,
   mySignup,
+  myGuests,
+  previousGuests,
 }: SignupCardProps) {
   const [signupState, signupForm, signupPending] = useActionState<
     FormState,
@@ -102,12 +109,15 @@ export function SignupCard({
     FormData
   >(updateMyGuestsAction.bind(null, slug, lunchId), {});
   const [editingGuests, setEditingGuests] = useState(false);
-  const [guestCount, setGuestCount] = useState(mySignup?.guest_count ?? 0);
+  // Guests on the sign-up form, for the waitlist warning.
+  const [guestCount, setGuestCount] = useState(0);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const cancelFormRef = useRef<HTMLFormElement>(null);
 
   useSuccessToast(signupPending, signupState.error, "Your name is on the list");
-  useSuccessToast(guestPending, guestState.error, "Guests updated");
+  useSuccessToast(guestPending, guestState.error, "Guests updated", () =>
+    setEditingGuests(false)
+  );
   useSuccessToast(cancelPending, cancelState.error, "Your place was withdrawn");
 
   // The guest date binds everyone, committee included.
@@ -148,7 +158,7 @@ export function SignupCard({
             <p className="text-sm text-muted-foreground">
               Bringing {mySignup.guest_count} guest
               {mySignup.guest_count > 1 ? "s" : ""}
-              {mySignup.guest_names ? ` — ${mySignup.guest_names}` : ""}.
+              {mySignup.guest_names ? `: ${mySignup.guest_names}` : ""}.
             </p>
           ) : guestsLater ? (
             <p className="text-sm text-muted-foreground">{guestsLaterNote}</p>
@@ -169,30 +179,17 @@ export function SignupCard({
               action={guestForm}
               className="space-y-3 rounded-xl border border-border bg-muted/40 p-4"
             >
-              <div className="space-y-2">
-                <Label htmlFor="guestCount">Guests (max {maxGuests})</Label>
-                <Input
-                  id="guestCount"
-                  name="guestCount"
-                  type="number"
-                  min={0}
-                  max={maxGuests}
-                  className="w-24"
-                  value={guestCount}
-                  onChange={(e) => setGuestCount(Number(e.target.value))}
-                />
-              </div>
-              {guestCount > 0 ? (
-                <div className="space-y-2">
-                  <Label htmlFor="guestNames">Guest names</Label>
-                  <Input
-                    id="guestNames"
-                    name="guestNames"
-                    defaultValue={mySignup.guest_names ?? ""}
-                    placeholder="Jane Doe, John Smith"
-                  />
-                </div>
-              ) : null}
+              <p className="text-xs text-muted-foreground">
+                {guestsUi
+                  ? `Up to ${maxGuests} guest${maxGuests === 1 ? "" : "s"}. Guests occupy seats from the same booking.`
+                  : `${guestsLaterNote} Until then you can only remove guests.`}
+              </p>
+              <GuestPicker
+                // Before the guest date a member may only take guests off.
+                max={guestsUi ? maxGuests : Math.min(maxGuests, myGuests.length)}
+                options={guestsUi ? previousGuests : []}
+                initial={myGuests}
+              />
               <FormError message={guestState.error} />
               <div className="flex gap-2">
                 <Button type="submit" size="sm" loading={guestPending}>
@@ -299,34 +296,17 @@ export function SignupCard({
       <CardContent>
         <form action={signupForm} className="space-y-4">
           {guestsUi ? (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="guestCount">Guests (max {maxGuests})</Label>
-                <Input
-                  id="guestCount"
-                  name="guestCount"
-                  type="number"
-                  min={0}
-                  max={maxGuests}
-                  className="w-24"
-                  value={guestCount}
-                  onChange={(e) => setGuestCount(Number(e.target.value) || 0)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Guests occupy seats from the same booking.
-                </p>
-              </div>
-              {guestCount > 0 ? (
-                <div className="space-y-2">
-                  <Label htmlFor="guestNames">Guest names</Label>
-                  <Input
-                    id="guestNames"
-                    name="guestNames"
-                    placeholder="Jane Doe, John Smith"
-                  />
-                </div>
-              ) : null}
-            </>
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                You may bring up to {maxGuests} guest{maxGuests === 1 ? "" : "s"}.
+                Guests occupy seats from the same booking.
+              </p>
+              <GuestPicker
+                max={maxGuests}
+                options={previousGuests}
+                onCountChange={setGuestCount}
+              />
+            </div>
           ) : guestsLater ? (
             <p className="text-xs text-muted-foreground">
               {/* In the members window the header already gives the date. */}

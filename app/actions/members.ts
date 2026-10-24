@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireCommittee, requireMember, errorMessage } from "@/lib/action-helpers";
 import { sendInviteEmail } from "@/lib/email";
+import { inviteToClub } from "@/lib/invite";
 import type { FormState } from "./auth";
 
 const inviteSchema = z.object({
@@ -34,65 +35,7 @@ export async function inviteMemberAction(
       role: formData.get("role") ?? "member",
     });
     if (!parsed.success) return { error: parsed.error.issues[0].message };
-    const { email, firstName, lastName, role } = parsed.data;
-
-    const admin = createAdminClient();
-
-    const { data: existing } = await admin
-      .from("memberships")
-      .select("id, status")
-      .eq("club_id", club.id)
-      .eq("email", email)
-      .maybeSingle();
-    if (existing && existing.status !== "removed")
-      return { error: "That email is already on the roster" };
-
-    // New user → Supabase invite link (sent via Resend, not Supabase email).
-    // Existing user (e.g. member of another chapter) → activate immediately.
-    let inviteLink: string | null = null;
-    let userId: string | null = null;
-    let status: "invited" | "active" = "invited";
-
-    const { data: linkData, error: linkErr } =
-      await admin.auth.admin.generateLink({ type: "invite", email });
-
-    if (!linkErr && linkData) {
-      userId = linkData.user.id;
-      inviteLink = `${appUrl()}/auth/confirm?token_hash=${linkData.properties.hashed_token}&type=invite&next=${encodeURIComponent("/auth/set-password")}`;
-    } else if (
-      linkErr?.code === "email_exists" ||
-      linkErr?.message.toLowerCase().includes("already")
-    ) {
-      const { data: page } = await admin.auth.admin.listUsers({
-        page: 1,
-        perPage: 1000,
-      });
-      const found = page?.users.find(
-        (u) => u.email?.toLowerCase() === email
-      );
-      if (!found) return { error: "Could not resolve the existing account" };
-      userId = found.id;
-      status = "active";
-      inviteLink = `${appUrl()}/`;
-    } else {
-      return { error: linkErr?.message ?? "Could not create the invite" };
-    }
-
-    const row = {
-      club_id: club.id,
-      user_id: userId,
-      email,
-      first_name: firstName,
-      last_name: lastName,
-      role,
-      status,
-    };
-    const { error: memErr } = existing
-      ? await admin.from("memberships").update(row).eq("id", existing.id)
-      : await admin.from("memberships").insert(row);
-    if (memErr) return { error: memErr.message };
-
-    await sendInviteEmail({ to: email, clubName: club.name, inviteLink });
+    await inviteToClub(club, parsed.data);
   } catch (e) {
     return { error: errorMessage(e) };
   }

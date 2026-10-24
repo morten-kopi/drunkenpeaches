@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import {
+  dietaryLine,
   guestLabel,
   headcount,
   lunchWhenWhere,
@@ -143,7 +144,7 @@ export async function restaurantListPdf(opts: {
       n: [String(i + 1)],
       name: wrap(bold, drawable(bold, row.name), BODY, COLUMNS[1].width - PAD),
       guests: wrap(regular, drawable(regular, guestLabel(row)), BODY, COLUMNS[2].width - PAD),
-      dietary: wrap(regular, drawable(regular, row.dietary ?? ""), BODY, COLUMNS[3].width),
+      dietary: wrap(regular, drawable(regular, dietaryLine(row)), BODY, COLUMNS[3].width),
     };
     const lines = Math.max(...Object.values(cells).map((c) => c.length));
     const height = lines * LINE;
