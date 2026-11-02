@@ -101,7 +101,6 @@ export default async function GuestsPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        kicker="The book"
         title="Guests"
         description={`${rows.length} guest${rows.length === 1 ? "" : "s"} brought by members`}
       />

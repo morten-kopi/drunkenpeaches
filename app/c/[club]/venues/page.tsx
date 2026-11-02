@@ -39,9 +39,9 @@ export default async function VenuesPage({
     <div className="space-y-8">
       <ErrorBanner message={error} />
       <PageHeader
-        kicker="Back of house"
+        kicker="Committee"
         title="Venues"
-        description="Restaurants on file for the club's luncheons."
+        description="Restaurants the club books for lunches."
       >
         <AddVenueDialog slug={slug} />
       </PageHeader>

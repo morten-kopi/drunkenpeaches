@@ -32,7 +32,7 @@ export default async function NewLunchPage({
     <div className="space-y-8">
       <PageHeader
         kicker="Committee"
-        title="Arrange a lunch"
+        title="New lunch"
         description="Book the restaurant first. Capacity is taken from that booking."
       />
       <LunchForm

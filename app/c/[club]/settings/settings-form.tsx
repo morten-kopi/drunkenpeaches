@@ -23,7 +23,7 @@ export function SettingsForm({ slug, club }: { slug: string; club: Club }) {
     <form action={formAction} className="max-w-2xl space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Identity</CardTitle>
+          <CardTitle>Club</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -73,7 +73,7 @@ export function SettingsForm({ slug, club }: { slug: string; club: Club }) {
               className="w-24"
             />
             <p className="text-xs text-muted-foreground">
-              From committee open, only the committee may add their names. After this many days the list opens to the membership.
+              From committee open, only the committee can sign up. After this many days, sign-ups open to all members.
             </p>
           </div>
           <div className="space-y-2">
@@ -88,7 +88,7 @@ export function SettingsForm({ slug, club }: { slug: string; club: Club }) {
               className="w-24"
             />
             <p className="text-xs text-muted-foreground">
-              After the committee window, members may add their own names.
+              After the committee window, members can sign up.
               Guests stay closed for this many days.
             </p>
           </div>
@@ -104,7 +104,7 @@ export function SettingsForm({ slug, club }: { slug: string; club: Club }) {
               className="w-24"
             />
             <p className="text-xs text-muted-foreground">
-              After the members window, guests may be added until the cutoff
+              After the members window, guests can be added until the cutoff
               below, on lunches that allow them. Each lunch decides.
             </p>
           </div>
@@ -127,7 +127,7 @@ export function SettingsForm({ slug, club }: { slug: string; club: Club }) {
               override the dates. Default timeline: open → committee{" "}
               {club.committee_priority_days}d → members{" "}
               {club.members_only_days}d → guests {club.guests_phase_days}d →
-              cutoff {club.signup_cutoff_days}d before the table sits.
+              cutoff {club.signup_cutoff_days}d before the lunch.
             </p>
           </div>
         </CardContent>

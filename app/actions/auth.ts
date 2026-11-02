@@ -65,7 +65,7 @@ export async function resetPasswordAction(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user)
-    return { error: "Your reset link has expired — request a new one" };
+    return { error: "Your reset link has expired. Request a new one." };
 
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: error.message };
@@ -114,7 +114,7 @@ export async function completeProfileAction(
       data: { user },
     } = await supabase.auth.getUser();
     if (!user)
-      return { error: "Your session has expired — open the invite link again" };
+      return { error: "Your session has expired. Open the invite link again." };
 
     const { error: pwErr } = await supabase.auth.updateUser({ password });
     if (pwErr) return { error: pwErr.message };

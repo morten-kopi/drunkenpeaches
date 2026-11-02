@@ -28,7 +28,7 @@ export default async function SettingsPage({
       <PageHeader
         kicker="Committee"
         title="Club settings"
-        description="Identity, the list windows, emails and exports for this chapter."
+        description="Club name, sign-up windows, emails and exports."
       />
       <SettingsForm slug={slug} club={ctx.club} />
       <EmailsCard slug={slug} edited={new Set((edited ?? []).map((e) => e.key as string))} />

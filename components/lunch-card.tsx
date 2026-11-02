@@ -70,7 +70,7 @@ export function LunchCard({
         ) : null}
         {mySignupStatus ? (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            Your place: <StatusBadge status={mySignupStatus} />
+            Your sign-up: <StatusBadge status={mySignupStatus} />
           </div>
         ) : null}
       </Card>

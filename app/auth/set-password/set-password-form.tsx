@@ -79,7 +79,7 @@ export function SetPasswordForm({
       </div>
       <FormError message={state.error} />
       <Button type="submit" className="w-full" loading={pending}>
-        {pending ? "Saving…" : "Complete particulars"}
+        {pending ? "Saving…" : "Finish setup"}
       </Button>
     </form>
   );

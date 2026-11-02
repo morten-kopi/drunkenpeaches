@@ -82,7 +82,7 @@ export function MemberEditForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="function">Function</Label>
+          <Label htmlFor="function">Position</Label>
           <Input
             id="function"
             name="function"

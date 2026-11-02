@@ -232,7 +232,7 @@ export default async function LunchDetailPage({
             ) : lunch.signup_cutoff_at && lunch.status === "released" ? (
               <p className="flex items-center gap-2">
                 <LockIcon className="size-4 shrink-0" />
-                The list {cutoffPassed ? "closed on" : "closes at"}{" "}
+                Sign-ups {cutoffPassed ? "closed on" : "close at"}{" "}
                 {fmtDateTime(lunch.signup_cutoff_at, ctx.club.timezone)}
               </p>
             ) : null}
@@ -276,7 +276,7 @@ export default async function LunchDetailPage({
             />
             {overCapacity ? (
               <p className="text-xs font-medium text-destructive">
-                Over capacity — resolve before the lunch.
+                More people than seats. Fix this before the lunch.
               </p>
             ) : null}
           </Card>
@@ -337,7 +337,7 @@ export default async function LunchDetailPage({
             <CardContent>
               {confirmed.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  The list is empty.
+                  No one has signed up yet.
                 </p>
               ) : (
                 <ul className="space-y-1">
@@ -471,7 +471,7 @@ export default async function LunchDetailPage({
             <CardContent>
               {waitlisted.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No one waiting. Seats remain.
+                  No one on the waitlist.
                 </p>
               ) : (
                 <ol className="space-y-1">
@@ -629,7 +629,8 @@ export default async function LunchDetailPage({
                 </form>
                 <p className="mt-2 text-xs text-muted-foreground">
                   Raising it auto-promotes the waitlist (with emails). Lowering
-                  it never bumps confirmed attendees — resolve overages by hand.
+                  it never bumps anyone already confirmed. Sort out any overflow
+                  by hand.
                 </p>
               </CardContent>
             </Card>
@@ -645,7 +646,7 @@ export default async function LunchDetailPage({
                 >
                   <div className="flex-1 space-y-2">
                     <Label htmlFor="cutoffAt">
-                      {cutoffPassed ? "Locked — move it to reopen" : "Locks at"}
+                      {cutoffPassed ? "Locked. Move it to reopen" : "Locks at"}
                     </Label>
                     <Input
                       id="cutoffAt"

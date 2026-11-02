@@ -83,19 +83,19 @@ export default async function DashboardPage({
   const nextCopy = next && nextPhase ? signupWindowCopy(next, nextPhase, ctx.club.timezone) : null;
   const nextOpen = findNextOpenLunch(lunches, ctx.club.timezone);
   const heroCta = (() => {
-    if (!next) return "Consult the luncheon";
-    if (mySignup) return "View my place";
-    if (nextPhase === "closed") return "The list is closed";
+    if (!next) return "View lunch";
+    if (mySignup) return "View my seat";
+    if (nextPhase === "closed") return "Sign-ups closed";
     if (nextPhase === "not_open") {
-      return nextCopy?.title ?? "The list is not yet open";
+      return nextCopy?.title ?? "Sign-ups not open yet";
     }
     if (nextPhase === "committee" && !ctx.isCommittee) {
-      return "Committee priority";
+      return "Committee only for now";
     }
     if (!ctx.isCommittee && nextOpen && nextOpen.id !== next.id) {
-      return "Consult the luncheon";
+      return "View lunch";
     }
-    return "Consult & add your name";
+    return "Sign up";
   })();
 
   // Committee extras
@@ -124,13 +124,13 @@ export default async function DashboardPage({
     <div className="space-y-8">
       <PageHeader
         kicker={ctx.club.name}
-        title={ctx.membership.first_name || "The notice board"}
-        description="Forthcoming luncheons and the list."
+        title={ctx.membership.first_name || "Home"}
+        description="Upcoming lunches and sign-ups."
       >
         {ctx.isCommittee ? (
           <Button render={<Link href={`/c/${slug}/lunches/new`} />}>
             <PlusIcon />
-            Arrange a lunch
+            New lunch
           </Button>
         ) : null}
       </PageHeader>
@@ -138,7 +138,7 @@ export default async function DashboardPage({
       {/* Next-lunch hero */}
       {next ? (
         <Card className="club-notice gap-0 p-5 sm:p-7">
-          <p className="club-kicker">Next luncheon</p>
+          <p className="club-kicker">Next lunch</p>
           <div className="mt-3 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -187,14 +187,14 @@ export default async function DashboardPage({
           title="Nothing on the calendar"
           description={
             ctx.isCommittee
-              ? "Arrange the first lunch and release it once the restaurant is booked."
-              : "The next luncheon will appear here when the committee releases it."
+              ? "Create the first lunch and release it once the restaurant is booked."
+              : "The next lunch shows up here once the committee releases it."
           }
           action={
             ctx.isCommittee ? (
               <Button render={<Link href={`/c/${slug}/lunches/new`} />}>
                 <PlusIcon />
-                Arrange a lunch
+                New lunch
               </Button>
             ) : undefined
           }
@@ -204,7 +204,7 @@ export default async function DashboardPage({
       {/* Coming up */}
       {comingUp.length > 0 ? (
         <section className="space-y-3">
-          <h2 className="text-h2 text-foreground">Also forthcoming</h2>
+          <h2 className="text-h2 text-foreground">Coming up</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {comingUp.map((l) => {
               const s = signupsByLunch.get(l.id) ?? [];
@@ -247,7 +247,7 @@ export default async function DashboardPage({
                     {venueCount}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    venues on file
+                    venues
                   </p>
                 </div>
               </div>
@@ -264,7 +264,7 @@ export default async function DashboardPage({
                     {memberCount}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    members in good standing
+                    active members
                   </p>
                 </div>
               </div>

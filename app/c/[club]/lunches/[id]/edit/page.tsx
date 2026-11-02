@@ -42,8 +42,8 @@ export default async function EditLunchPage({
     <div className="space-y-8">
       <PageHeader
         kicker="Committee"
-        title="Amend the luncheon"
-        description="Those on the list are written to if the date, time or venue of a released lunch changes."
+        title="Edit lunch"
+        description="Everyone signed up gets an email if you change the date, time or venue of a released lunch."
       />
       <LunchForm
         slug={slug}

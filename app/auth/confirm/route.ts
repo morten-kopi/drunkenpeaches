@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.redirect(
     `${origin}/?error=${encodeURIComponent(
-      "That link is invalid or has expired — ask the committee to re-send your invite."
+      "That link is invalid or has expired. Ask the committee to re-send your invite."
     )}`
   );
 }
