@@ -33,7 +33,7 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
 ## Server-side privileges
 
 - **Member-facing reads/writes** go through the user's session → RLS enforces tenant + role.
-- **Privileged operations** (sending member invites, admin actions) run **server-side** in
+- **Privileged operations** (adding members, admin actions) run **server-side** in
   Next.js using the Supabase **service-role key** — never exposed to the client.
 - Business rules that must be reliable (waitlist auto-promotion, sign-up cutoff locking,
   capacity changes) live in **server-side logic**, not the client.
@@ -60,6 +60,9 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
 - Every email sign-in activates the member's invited memberships. A member
   who joins this way sees the welcome page (`/auth/set-password`) first,
   where a password is optional.
+- **New members get no email from the app.** The committee adds them
+  (`inviteToClub` creates the account, status `invited`) and welcomes them
+  personally; their first sign-in with an emailed code makes them active.
 - **Passwords are optional.** Members set or change one on their profile.
   Imported members' temporary passwords keep working until they choose their
   own; `app_metadata.must_change_password` is cleared then, and forces
@@ -144,11 +147,11 @@ layer sends the notification emails.
 - Guests are committee-only tables. Members get guest names on a lunch
   through `lunch_guests()` (email and dietary notes stay null for them) and
   their own past guests through `previous_guests()` for the guest picker.
-- Club creation and member invites run server-side with the service-role key.
+- Club creation and adding members run server-side with the service-role key.
 
 ### Email (Resend, implemented)
 
-Invite, sign-up confirmed, waitlisted, promoted from waitlist, guest
+Sign-up confirmed, waitlisted, promoted from waitlist, guest
 confirmed (to the guest, once per lunch, marked by
 `signup_guests.confirmation_sent_at`), lunch changed/cancelled, sign-in
 code, password reset.
@@ -158,7 +161,8 @@ reset, which are account emails) is editable by the
 committee in Settings → Emails. Defaults, placeholders, the "when / to whom"
 copy and the renderer live in `lib/email-templates.ts`; a club's edits are
 rows in `email_templates` (00009), one per edited email, and an email without
-a row follows the defaults. The button, link and signature are added by
+a row follows the defaults. The default wording uses no contractions
+("you are", not "you're"). The button and signature are added by
 `lib/email.ts` and can't be edited. Wording identical to the default is not
 stored. Sending reads the table with the service role and falls back to the
 default wording if it can't. A daily Vercel cron
@@ -213,8 +217,8 @@ per-phase notes live in [`docs/completions/`](./completions/).
   have `loading.tsx` skeletons.
 
 ## Known v1 limitations
-- A user who is invited to a second club reuses their existing account and is
-  activated immediately (no second invite email flow).
+- A user who is added to a second club reuses their existing account and is
+  activated immediately.
 - No public application/nomination flow (by design, v1).
 - Committee redirect/revalidate forms (lunch lifecycle, capacity/cutoff, venue
   archive/restore) surface success via the revalidated UI rather than a

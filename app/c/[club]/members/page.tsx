@@ -4,7 +4,6 @@ import { getClubContext } from "@/lib/club-context";
 import { createClient } from "@/lib/supabase/server";
 import { initials } from "@/lib/format";
 import type { Membership } from "@/lib/types";
-import { resendInviteAction } from "@/app/actions/members";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/page-header";
@@ -93,13 +92,6 @@ export default async function MembersPage({
             primary: true,
             cell: (m: Membership) => (
               <div className="flex justify-end gap-1">
-                {m.status === "invited" ? (
-                  <form action={resendInviteAction.bind(null, slug, m.id)}>
-                    <Button variant="ghost" size="sm" type="submit">
-                      Re-send invite
-                    </Button>
-                  </form>
-                ) : null}
                 <Button
                   variant="outline"
                   size="sm"

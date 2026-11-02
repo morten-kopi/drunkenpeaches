@@ -1,19 +1,16 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ActionError, ilikeExact } from "@/lib/action-helpers";
-import { sendInviteEmail } from "@/lib/email";
 import { todayInZone } from "@/lib/format";
 import type { Club, MemberRole } from "@/lib/types";
 
-function appUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-}
-
 /**
- * Put a person on the roster and send the invite email. A new person gets an
- * invite link that signs them in; someone with an account already (a member of
- * another chapter) is active at once. Joined on is today on the club's clock.
- * Any guest record with the same email is linked, so the lunches they came to
- * as a guest stay in their history. Runs with the service-role key.
+ * Put a person on the roster. No email goes out: the committee welcomes new
+ * members personally. A new person gets an account and stays "invited" until
+ * they first sign in with an emailed code, which makes them active. Someone
+ * with an account already (a member of another chapter) is active at once.
+ * Joined on is today on the club's clock. Any guest record with the same
+ * email is linked, so the lunches they came to as a guest stay in their
+ * history. Runs with the service-role key.
  */
 export async function inviteToClub(
   club: Club,
@@ -37,9 +34,9 @@ export async function inviteToClub(
   if (existing && existing.status !== "removed")
     throw new ActionError("That email is already on the roster");
 
-  // New user → Supabase invite link (sent via Resend, not Supabase email).
-  // Existing user (e.g. member of another chapter) → activate immediately.
-  let inviteLink: string;
+  // New user → generating an invite link creates their account (the link
+  // itself is not sent). Existing user (e.g. member of another chapter) →
+  // activate immediately.
   let userId: string;
   let status: "invited" | "active" = "invited";
 
@@ -48,7 +45,6 @@ export async function inviteToClub(
 
   if (!linkErr && linkData) {
     userId = linkData.user.id;
-    inviteLink = `${appUrl()}/auth/confirm?token_hash=${linkData.properties.hashed_token}&type=invite&next=${encodeURIComponent("/auth/set-password")}`;
   } else if (
     linkErr?.code === "email_exists" ||
     linkErr?.message.toLowerCase().includes("already")
@@ -61,7 +57,6 @@ export async function inviteToClub(
     if (!found) throw new ActionError("Could not resolve the existing account");
     userId = found.id;
     status = "active";
-    inviteLink = `${appUrl()}/`;
   } else {
     throw new ActionError(linkErr?.message ?? "Could not create the invite");
   }
@@ -90,11 +85,5 @@ export async function inviteToClub(
     .is("membership_id", null);
   if (linkGuestErr) console.error("[invite] could not link guest record", linkGuestErr);
 
-  await sendInviteEmail({
-    to: email,
-    name: `${person.firstName} ${person.lastName}`.trim(),
-    club,
-    inviteLink,
-  });
   return { membershipId: saved.id as string };
 }

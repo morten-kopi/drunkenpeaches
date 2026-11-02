@@ -26,7 +26,7 @@ export function InviteForm({ slug }: { slug: string }) {
   const formRef = useRef<HTMLFormElement>(null);
   const submitted = useRef(false);
 
-  useSuccessToast(pending, state.error, "Invitation sent");
+  useSuccessToast(pending, state.error, "Member added");
 
   // Clear the form only after a real, successful submit.
   useEffect(() => {
@@ -39,7 +39,7 @@ export function InviteForm({ slug }: { slug: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Invite a member</CardTitle>
+        <CardTitle>Add a member</CardTitle>
       </CardHeader>
       <CardContent>
         <form
@@ -73,15 +73,15 @@ export function InviteForm({ slug }: { slug: string }) {
           </div>
           <Button type="submit" loading={pending}>
             <UserPlusIcon />
-            Send invitation
+            Add member
           </Button>
           <div className="sm:col-span-2 lg:col-span-5">
             <FormError message={state.error} />
           </div>
         </form>
         <p className="mt-3 text-xs text-muted-foreground">
-          They&apos;ll get an email to accept the invitation and check their
-          details.
+          The app sends no email. In your welcome email, ask them to sign in
+          with this email address. They get a sign-in code by email.
         </p>
       </CardContent>
     </Card>

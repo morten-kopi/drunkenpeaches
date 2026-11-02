@@ -1,14 +1,14 @@
 // The club's automatic emails: what each says by default, when it goes out
 // and to whom. The committee can rewrite the subject, heading and body of
 // each one in Settings; edits are stored per club in email_templates, and an
-// email nobody has edited follows the defaults here. The button, link and
-// signature are added by the system and cannot be edited, so no edit can
-// leave an invite without its link.
+// email nobody has edited follows the defaults here. The button and signature
+// are added by the system and cannot be edited.
+//
+// The default wording uses no contractions ("you are", not "you're").
 //
 // Pure module: the settings page uses it in the browser for the preview.
 
 export type EmailKey =
-  | "invite"
   | "signup_confirmed"
   | "waitlisted"
   | "promoted"
@@ -53,7 +53,7 @@ const P = {
   guests: {
     key: "guests",
     about: "A sentence about their guests, or nothing when they bring none",
-    sample: "You're bringing 1 guest (Jane Doe).",
+    sample: "You are bringing 1 guest (Jane Doe).",
   },
 } satisfies Record<string, Placeholder>;
 
@@ -71,25 +71,14 @@ const lunchPlaceholders = (name: Placeholder) => [
 /** In the order the settings page lists them. */
 export const EMAILS: EmailDef[] = [
   {
-    key: "invite",
-    name: "Invitation",
-    when: "When the committee adds a member, or makes a guest a member",
-    to: "The new member",
-    button: "Accept invitation",
-    placeholders: [P.name, P.club],
-    subject: "You're invited to join {club}",
-    heading: "You're invited to join {club}",
-    body: "You've been invited to join **{club}**.\n\nAccept the invitation to sign in and check your details:",
-  },
-  {
     key: "signup_confirmed",
     name: "Seat confirmed",
     when: "When a member signs up and gets a seat, or the committee adds them",
     to: "The member",
     placeholders: [...lunchPlaceholders(P.name), P.guests],
-    subject: "You're confirmed: {lunch}",
-    heading: "You're signed up",
-    body: "Hi {name},\n\nYou're confirmed for **{lunch}** on **{date}** at {venue}.\n\n{guests}",
+    subject: "Confirmed: {lunch}",
+    heading: "Seat confirmed",
+    body: "Hi {name},\n\nWe are happy to inform you that you have been confirmed for **{lunch}** on **{date}** at {venue}.\n\n{guests}\n\nIf you bring guests, please remember to pay **SGD 100 per guest** directly to the {club} account.",
   },
   {
     key: "waitlisted",
@@ -97,9 +86,9 @@ export const EMAILS: EmailDef[] = [
     when: "When a member signs up and the lunch is full",
     to: "The member",
     placeholders: lunchPlaceholders(P.name),
-    subject: "You're on the waitlist: {lunch}",
-    heading: "You're on the waitlist",
-    body: "Hi {name},\n\n**{lunch}** on **{date}** is full, so you're on the waitlist.\n\nIf a seat frees up and you're next in line, it's yours and we'll email you right away.",
+    subject: "You are on the waitlist: {lunch}",
+    heading: "You are on the waitlist",
+    body: "Hi {name},\n\n**{lunch}** on **{date}** is full, so you are on the waitlist.\n\nIf a seat frees up and you are next in line, it is yours and we will email you right away.",
   },
   {
     key: "promoted",
@@ -108,8 +97,8 @@ export const EMAILS: EmailDef[] = [
     to: "The member",
     placeholders: lunchPlaceholders(P.name),
     subject: "A seat opened up: {lunch}",
-    heading: "You're off the waitlist",
-    body: "Hi {name},\n\nA seat opened up, and you're now **confirmed** for **{lunch}** on **{date}** at {venue}.\n\nIf you can't make it, please cancel your sign-up so the next person can take the seat.",
+    heading: "You are off the waitlist",
+    body: "Hi {name},\n\nA seat opened up, and you are now **confirmed** for **{lunch}** on **{date}** at {venue}.\n\nIf you bring guests, please remember to pay **SGD 100 per guest** directly to the {club} account.\n\nIf you cannot make it, please cancel your sign-up so the next person can take the seat.",
   },
   {
     key: "guest_confirmed",
@@ -127,9 +116,9 @@ export const EMAILS: EmailDef[] = [
       P.venue,
       P.venueAddress,
     ],
-    subject: "You're on the guest list: {lunch}",
-    heading: "You're on the guest list",
-    body: "Hi {name},\n\n{host} has added you as their guest at **{lunch}** on **{date}** at {time}, at {venue_address}.\n\nIf you have dietary requirements or can't make it, please let {host} know.",
+    subject: "You are on the guest list: {lunch}",
+    heading: "You are on the guest list",
+    body: "Hi {name},\n\nWe are happy to inform you that you have been confirmed as {host}'s guest for **{lunch}** on **{date}** at {time}, at {venue_address}.\n\nIf you have dietary requirements or cannot make it, please let {host} know.",
   },
   {
     key: "lunch_changed",
@@ -168,7 +157,7 @@ export const EMAILS: EmailDef[] = [
       {
         key: "members_follow",
         about: "When members can sign up, or nothing without a committee window",
-        sample: "Members can sign up from Wed 4 Nov 2026, 09:00.",
+        sample: "All members can sign up from Wed 4 Nov 2026, 09:00.",
       },
     ],
     subject: "{lunch}: committee sign-ups open {opens_day}",
@@ -188,7 +177,7 @@ export const EMAILS: EmailDef[] = [
       {
         key: "guest_rule",
         about: "Whether and when guests can come",
-        sample: "Guests can be added from Wed 18 Nov 2026, 09:00, if there's space.",
+        sample: "Guests can be added from Wed 18 Nov 2026, 09:00, if there is space.",
       },
     ],
     subject: "{lunch}: sign-ups open {opens_day}",
@@ -210,7 +199,7 @@ export const EMAILS: EmailDef[] = [
     ],
     subject: "{lunch}: guest sign-ups open {opens_day}",
     heading: "Guest sign-ups",
-    body: "Hi {name},\n\nGuest sign-ups for **{lunch}** open on **{opens}**. Each member can bring up to {max_guests}, if there's space. {seats_free}.\n\nIf you're already signed up, add your guests on the lunch page. If not, you can sign up and add your guests together.\n\nThe lunch is on **{date}** at {time}, at {venue_address}.",
+    body: "Hi {name},\n\nGuest sign-ups for **{lunch}** open on **{opens}**. Each member can bring up to {max_guests}, if there is space. {seats_free}.\n\nIf you are already signed up, add your guests on the lunch page. If not, you can sign up and add your guests together.\n\nThe lunch is on **{date}** at {time}, at {venue_address}.",
   },
   {
     key: "lunch_reminder",
@@ -221,7 +210,7 @@ export const EMAILS: EmailDef[] = [
     placeholders: [...lunchPlaceholders(P.firstName), P.guests],
     subject: "Reminder: {lunch}, {date_short} at {time}",
     heading: "Lunch reminder",
-    body: "Hi {name},\n\nA reminder that **{lunch}** is on **{date}** at {time}, at {venue_address}.\n\n{guests}\n\nIf you can't make it, please let the committee know as soon as possible.",
+    body: "Hi {name},\n\nA reminder that **{lunch}** is on **{date}** at {time}, at {venue_address}.\n\n{guests}\n\nIf you cannot make it, please let the committee know as soon as possible.",
   },
 ];
 
@@ -301,24 +290,17 @@ export function contentFor(def: EmailDef, saved?: Partial<EmailContent> | null):
   };
 }
 
-/**
- * The whole email as HTML: heading, body, the system's button (with the link
- * written out when asked) and the club's signature.
- */
+/** The whole email as HTML: heading, body, the system's button and the club's signature. */
 export function emailHtml(opts: {
   heading: string;
   body: string;
   clubName?: string;
-  button?: { label: string; url: string; showLink?: boolean };
+  button?: { label: string; url: string };
 }) {
   const button = opts.button
     ? `<p style="margin: 24px 0;">
          <a href="${esc(opts.button.url)}" style="background: #1c1917; color: #fafaf9; padding: 12px 24px; text-decoration: none; border-radius: 6px;">${esc(opts.button.label)}</a>
-       </p>${
-         opts.button.showLink
-           ? `\n       <p style="font-size: 13px; color: #78716c;">If the button doesn't work, paste this link into your browser:<br/>${esc(opts.button.url)}</p>`
-           : ""
-       }`
+       </p>`
     : "";
   const signature = opts.clubName
     ? `<hr style="border: none; border-top: 1px solid #e7e5e4; margin: 32px 0 16px;" />
@@ -342,8 +324,8 @@ export function plural(n: number, noun: string) {
   return `${n} ${noun}${n === 1 ? "" : "s"}`;
 }
 
-/** "You're bringing 2 guests (Jane Doe, Tom Lee)." or "" without guests. */
+/** "You are bringing 2 guests (Jane Doe, Tom Lee)." or "" without guests. */
 export function guestsSentence(count: number, names: string | null) {
   if (count <= 0) return "";
-  return `You're bringing ${plural(count, "guest")}${names ? ` (${names})` : ""}.`;
+  return `You are bringing ${plural(count, "guest")}${names ? ` (${names})` : ""}.`;
 }

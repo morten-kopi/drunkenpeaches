@@ -3,9 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { requireCommittee, requireMember, errorMessage } from "@/lib/action-helpers";
-import { sendInviteEmail } from "@/lib/email";
 import { inviteToClub } from "@/lib/invite";
 import type { FormState } from "./auth";
 
@@ -16,11 +14,7 @@ const inviteSchema = z.object({
   role: z.enum(["member", "committee"]),
 });
 
-function appUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-}
-
-/** Committee adds a person by email; the system sends an invite via Resend. */
+/** Committee adds a person by email. No email goes out; they sign in with an emailed code. */
 export async function inviteMemberAction(
   slug: string,
   _prev: FormState,
@@ -41,38 +35,6 @@ export async function inviteMemberAction(
   }
   revalidatePath(`/c/${slug}/members`);
   return {};
-}
-
-/** Re-send the invite email to someone who hasn't accepted yet. */
-export async function resendInviteAction(slug: string, membershipId: string) {
-  let err: string | null = null;
-  try {
-    const { club } = await requireCommittee(slug);
-    const admin = createAdminClient();
-    const { data: m } = await admin
-      .from("memberships")
-      .select("email, status, full_name")
-      .eq("id", membershipId)
-      .eq("club_id", club.id)
-      .single();
-    if (!m || m.status !== "invited") throw new Error("No pending invite for that member");
-
-    const { data: linkData, error: linkErr } =
-      await admin.auth.admin.generateLink({ type: "invite", email: m.email });
-    // "invite" links can only be generated once per user; fall back to magiclink.
-    const props = linkErr
-      ? (await admin.auth.admin.generateLink({ type: "magiclink", email: m.email })).data
-          ?.properties
-      : linkData.properties;
-    if (!props) throw new Error("Could not generate an invite link");
-
-    const inviteLink = `${appUrl()}/auth/confirm?token_hash=${props.hashed_token}&type=${linkErr ? "magiclink" : "invite"}&next=${encodeURIComponent("/auth/set-password")}`;
-    await sendInviteEmail({ to: m.email, name: m.full_name, club, inviteLink });
-  } catch (e) {
-    err = errorMessage(e);
-  }
-  revalidatePath(`/c/${slug}/members`);
-  if (err) redirect(`/c/${slug}/members?error=${encodeURIComponent(err)}`);
 }
 
 const editSchema = z.object({

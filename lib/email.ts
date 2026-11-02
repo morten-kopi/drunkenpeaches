@@ -128,7 +128,7 @@ function compose(
   content: EmailContent,
   values: Record<string, string>,
   clubName: string,
-  button?: { label: string; url: string; showLink?: boolean }
+  button?: { label: string; url: string }
 ) {
   return {
     subject: renderSubject(content.subject, values),
@@ -184,7 +184,7 @@ export async function sendPasswordResetEmail(opts: { to: string; resetLink: stri
        <p style="margin: 24px 0;">
          <a href="${opts.resetLink}" style="background: #1c1917; color: #fafaf9; padding: 12px 24px; text-decoration: none; border-radius: 6px;">Reset password</a>
        </p>
-       <p style="font-size: 13px; color: #78716c;">If you didn't ask for this, you can ignore this email.</p>`,
+       <p style="font-size: 13px; color: #78716c;">If you did not ask for this, you can ignore this email.</p>`,
     })
   );
 }
@@ -207,7 +207,7 @@ export async function sendSignInCodeEmail(opts: {
       body: `<p style="margin: 0 0 16px;">Enter this code on the sign-in page:</p>
        <p style="margin: 0 0 16px; font-family: 'Courier New', monospace; font-size: 32px; font-weight: 600; letter-spacing: 6px;">${opts.code.replace(/\D/g, "")}</p>
        <p style="margin: 0 0 16px;">Or sign in with the button below. The code and the button work once.</p>
-       <p style="margin: 0 0 16px; font-size: 13px; color: #78716c;">If you didn't ask to sign in, you can ignore this email.</p>`,
+       <p style="margin: 0 0 16px; font-size: 13px; color: #78716c;">If you did not ask to sign in, you can ignore this email.</p>`,
       clubName: opts.clubName,
       button: { label: "Sign in", url: opts.link },
     })
@@ -215,21 +215,6 @@ export async function sendSignInCodeEmail(opts: {
 }
 
 // ---------- club emails --------------------------------------------------------
-
-export async function sendInviteEmail(opts: {
-  to: string;
-  name: string;
-  club: EmailClub;
-  inviteLink: string;
-}) {
-  const m = compose(
-    await wording(opts.club.id, "invite"),
-    { name: opts.name || "member", club: opts.club.name },
-    opts.club.name,
-    { label: "Accept invitation", url: opts.inviteLink, showLink: true }
-  );
-  await send(opts.to, m.subject, m.html);
-}
 
 export async function sendSignupConfirmed(opts: {
   to: string;
@@ -346,7 +331,7 @@ export async function sendCommitteeOpensReminder(opts: {
         opens: opts.opens.at,
         opens_day: opts.opens.day,
         members_follow: opts.membersOpen
-          ? `Members can sign up from ${opts.membersOpen.at}.`
+          ? `All members can sign up from ${opts.membersOpen.at}.`
           : "",
       },
       opts.club.name,
@@ -368,8 +353,8 @@ export async function sendMembersOpenReminder(opts: {
   const guestRule = !opts.guests
     ? "No guests at this lunch."
     : opts.guests.opens
-      ? `Guests can be added from ${opts.guests.opens.at}, if there's space.`
-      : `Each member can bring up to ${plural(opts.guests.maxPerMember, "guest")}, if there's space.`;
+      ? `Guests can be added from ${opts.guests.opens.at}, if there is space.`
+      : `Each member can bring up to ${plural(opts.guests.maxPerMember, "guest")}, if there is space.`;
   return sendEach(opts.recipients, (r) =>
     compose(
       content,
