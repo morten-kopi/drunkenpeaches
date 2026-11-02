@@ -31,7 +31,7 @@ export function AttendanceHistory({
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No luncheons recorded.</p>
+          <p className="text-sm text-muted-foreground">No lunches yet.</p>
         ) : (
           <ul className="space-y-3">
             {items.map((h) => (

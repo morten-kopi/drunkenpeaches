@@ -267,8 +267,8 @@ export function guestsAllowedNow(lunch: Lunch, now: Date = new Date()): boolean 
 
 function guestsNotYetReason(lunch: Lunch, timeZone: string): string {
   return lunch.guests_open_at
-    ? `Guests may be added from ${fmtDateTime(lunch.guests_open_at, timeZone)}`
-    : "Guests may not be added yet";
+    ? `You can add guests from ${fmtDateTime(lunch.guests_open_at, timeZone)}`
+    : "Guests can't be added yet";
 }
 
 export function validatePhaseOrder(ts: {
@@ -325,18 +325,18 @@ export function memberSignupBlockReason(opts: {
   if (!opts.isCommittee) {
     if (phase === "not_open") {
       return opts.lunch.members_open_at
-        ? `Member registration opens ${fmtDateTime(opts.lunch.members_open_at, opts.club.timezone)}`
-        : "Registration is not yet open for this lunch";
+        ? `Members can sign up from ${fmtDateTime(opts.lunch.members_open_at, opts.club.timezone)}`
+        : "Sign-ups for this lunch haven't opened yet";
     }
 
     if (opts.nextOpenLunchId && opts.lunch.id !== opts.nextOpenLunchId) {
-      return "You may only add your name to the next luncheon that is currently open";
+      return "You can only sign up for the next open lunch";
     }
 
     if (phase === "committee") {
       return opts.lunch.members_open_at
-        ? `Committee priority until ${fmtDateTime(opts.lunch.members_open_at, opts.club.timezone)}`
-        : "Committee priority is in effect";
+        ? `Committee only until ${fmtDateTime(opts.lunch.members_open_at, opts.club.timezone)}`
+        : "Only the committee can sign up right now";
     }
   }
 
@@ -401,23 +401,20 @@ export function lunchCardPhaseLabel(
     case "not_open":
       return lunch.signup_opens_at
         ? `Opens ${fmtDateShort(dateInZone(lunch.signup_opens_at, timeZone))}`
-        : "Sign-ups not yet open";
+        : "Sign-ups not open yet";
     case "committee":
       return lunch.members_open_at
-        ? `Committee priority until ${fmtDateShort(dateInZone(lunch.members_open_at, timeZone))}`
-        : "Committee priority";
+        ? `Committee only until ${fmtDateShort(dateInZone(lunch.members_open_at, timeZone))}`
+        : "Committee only";
     case "members":
-      if (!opts?.isNextOpen) return "Members may add their names";
+      if (!opts?.isNextOpen) return "Open to members";
       return guestsAllowed && lunch.guests_open_at
         ? `Members only, guests from ${fmtDateShort(dateInZone(lunch.guests_open_at, timeZone))}`
-        : "Open for members";
+        : "Open to members";
     case "guests":
-      if (opts?.isNextOpen) {
-        return guestsAllowed ? "Open to members and guests" : "Open for sign-up";
-      }
-      return guestsAllowed ? "Guests may be added" : "The list is open";
+      return guestsAllowed ? "Open to members and guests" : "Open for sign-up";
     case "closed":
-      return "The list is closed";
+      return "Sign-ups closed";
     default:
       return null;
   }
@@ -434,18 +431,18 @@ export function signupWindowCopy(
   const guestsAllowed = guestPolicy(lunch).allowed;
   const at = (iso: string) => fmtDateTime(iso, timeZone);
   const closes = lunch.signup_cutoff_at
-    ? `The list closes ${at(lunch.signup_cutoff_at)}.`
+    ? `Sign-ups close ${at(lunch.signup_cutoff_at)}.`
     : "";
   switch (phase) {
     case "not_open":
       return {
-        title: "The list is not yet open",
+        title: "Sign-ups not open yet",
         detail: [
           lunch.signup_opens_at
-            ? `Committee registration opens ${at(lunch.signup_opens_at)}.`
+            ? `The committee can sign up from ${at(lunch.signup_opens_at)}.`
             : null,
           lunch.members_open_at
-            ? `Member registration opens ${at(lunch.members_open_at)}.`
+            ? `Members can sign up from ${at(lunch.members_open_at)}.`
             : null,
         ]
           .filter(Boolean)
@@ -453,42 +450,42 @@ export function signupWindowCopy(
       };
     case "committee":
       return {
-        title: "Open for committee registration only",
+        title: "Open to the committee only",
         detail: lunch.members_open_at
-          ? `Member registration opens ${at(lunch.members_open_at)}.`
+          ? `Members can sign up from ${at(lunch.members_open_at)}.`
           : "",
       };
     case "members":
       if (!guestsAllowed) {
         return {
-          title: "Open for member registration",
-          detail: "No guests at this luncheon.",
+          title: "Open to members",
+          detail: "No guests at this lunch.",
         };
       }
       return {
-        title: "Open for member registration only",
+        title: "Open to members",
         detail: lunch.guests_open_at
-          ? `Guest registration opens ${at(lunch.guests_open_at)}, provided there is space.`
-          : "Guest registration opens later, provided there is space.",
+          ? `Guests can be added from ${at(lunch.guests_open_at)}, if there's space.`
+          : "Guests can be added later, if there's space.",
       };
     case "guests":
       return guestsAllowed
         ? {
-            title: "Now open for both member and guest registration",
+            title: "Open to members and guests",
             detail: closes,
           }
         : {
-            title: "Open for member registration",
-            detail: ["No guests at this luncheon.", closes]
+            title: "Open to members",
+            detail: ["No guests at this lunch.", closes]
               .filter(Boolean)
               .join(" "),
           };
     case "closed":
       return {
-        title: "The list is closed",
+        title: "Sign-ups closed",
         detail: lunch.signup_cutoff_at
           ? `Closed ${at(lunch.signup_cutoff_at)}.`
-          : "Write to the committee if you still wish to attend.",
+          : "Contact the committee if you'd still like to come.",
       };
     default:
       return null;

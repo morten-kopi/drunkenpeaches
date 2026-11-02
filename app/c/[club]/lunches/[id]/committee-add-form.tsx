@@ -39,7 +39,7 @@ export function CommitteeAddForm({
     committeeAddSignupAction.bind(null, slug, lunchId),
     {}
   );
-  useSuccessToast(pending, state.error, "Added to the list", () => {
+  useSuccessToast(pending, state.error, "Member added", () => {
     setMemberId(null);
     setRound((r) => r + 1);
   });

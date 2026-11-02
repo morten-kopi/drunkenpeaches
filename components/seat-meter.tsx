@@ -56,7 +56,7 @@ export function SeatMeter({
         aria-valuenow={taken}
         aria-valuemin={0}
         aria-valuemax={capacity}
-        aria-label={`${taken} of ${capacity} places taken`}
+        aria-label={`${taken} of ${capacity} seats taken`}
         className={cn(
           "relative w-full overflow-hidden rounded-full bg-muted",
           size === "sm" ? "h-1.5" : "h-2"

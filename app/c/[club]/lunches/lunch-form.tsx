@@ -208,7 +208,7 @@ export function LunchForm({
             id="title"
             name="title"
             defaultValue={lunch?.title ?? ""}
-            placeholder="June lunch — last Friday"
+            placeholder="June lunch"
             required
           />
         </div>
@@ -294,7 +294,7 @@ export function LunchForm({
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">
-              The fixed number of seats from your restaurant booking — sign-ups
+              The fixed number of seats from your restaurant booking. Sign-ups
               never change it.
             </p>
           )}
@@ -308,7 +308,7 @@ export function LunchForm({
               {club.committee_priority_days}d, members {club.members_only_days}d,
               guests {club.guests_phase_days}d, cutoff {club.signup_cutoff_days}d
               before the lunch). Changing the date or the committee open time
-              recalculates the later windows. You may override any field. Times are in{" "}
+              recalculates the later windows. You can change any field. Times are in{" "}
               {club.timezone}.
             </p>
           </div>
@@ -429,8 +429,8 @@ export function LunchForm({
           </Button>
           {!lunch ? (
             <p className="text-xs text-muted-foreground">
-              Lunches start as hidden drafts — release it to members from the
-              lunch page when you&apos;re ready.
+              New lunches start as hidden drafts. Release it to members from
+              the lunch page when you&apos;re ready.
             </p>
           ) : null}
         </div>

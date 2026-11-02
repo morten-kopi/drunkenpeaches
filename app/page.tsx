@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMyClubs } from "@/lib/club-context";
 import { LoginForm } from "./login-form";
 
-export const metadata: Metadata = { title: "Members' entrance" };
+export const metadata: Metadata = { title: "Sign in" };
 
 export default async function LoginPage({
   searchParams,
@@ -28,15 +28,15 @@ export default async function LoginPage({
 
   return (
     <AuthShell
-      title="Members' entrance"
-      description="Sign in to consult the book and the forthcoming luncheons."
+      title="Sign in"
+      description="See upcoming lunches and sign up."
       footer={
         <p>
           <Link
             href="/auth/forgot"
             className="text-foreground underline underline-offset-4 hover:text-primary"
           >
-            Forgotten your password?
+            Forgot your password?
           </Link>
         </p>
       }

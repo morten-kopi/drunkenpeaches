@@ -60,7 +60,7 @@ export function AppNav({
     ...(isCommittee
       ? [{ href: `${base}/settings`, label: "Settings", icon: SettingsIcon }]
       : []),
-    { href: `${base}/profile`, label: "My particulars", icon: UserIcon },
+    { href: `${base}/profile`, label: "My profile", icon: UserIcon },
   ];
 
   const desktopLinks = [
@@ -131,7 +131,7 @@ export function AppNav({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem render={<Link href={`${base}/profile`} />}>
                   <UserIcon />
-                  My particulars
+                  My profile
                 </DropdownMenuItem>
                 <DropdownMenuItem variant="destructive" onClick={submitSignout}>
                   <LogOutIcon />

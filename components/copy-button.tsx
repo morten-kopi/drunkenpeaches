@@ -26,7 +26,7 @@ export function CopyButton({
           await navigator.clipboard.writeText(text);
           toast.success("Copied to clipboard");
         } catch {
-          toast.error("Couldn't copy — select the text and copy manually");
+          toast.error("Couldn't copy. Select the text and copy it yourself.");
         }
       }}
     >

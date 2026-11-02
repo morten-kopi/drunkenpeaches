@@ -39,7 +39,7 @@ export function InviteForm({ slug }: { slug: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Propose a member</CardTitle>
+        <CardTitle>Invite a member</CardTitle>
       </CardHeader>
       <CardContent>
         <form
@@ -80,8 +80,8 @@ export function InviteForm({ slug }: { slug: string }) {
           </div>
         </form>
         <p className="mt-3 text-xs text-muted-foreground">
-          They will receive a letter to set a password and complete their
-          particulars. Membership is by invitation only.
+          They&apos;ll get an email to set a password and fill in their
+          details.
         </p>
       </CardContent>
     </Card>

@@ -111,7 +111,7 @@ export async function updateMemberAction(
     const d = parsed.data;
 
     if (me.id === membershipId && d.role !== "committee")
-      return { error: "You can't demote yourself — ask another committee member" };
+      return { error: "You can't demote yourself. Ask another committee member." };
 
     // Members are never hard-deleted: status change only.
     const { error } = await supabase

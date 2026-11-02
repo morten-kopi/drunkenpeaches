@@ -65,7 +65,7 @@ function ClosedCard({
           {mySignup ? (
             <>
               {" "}
-              Your place is held.
+              Your sign-up:
               <span className="ml-2 inline-flex align-middle">
                 <StatusBadge status={mySignup.status} />
               </span>
@@ -114,28 +114,28 @@ export function SignupCard({
   const [confirmCancel, setConfirmCancel] = useState(false);
   const cancelFormRef = useRef<HTMLFormElement>(null);
 
-  useSuccessToast(signupPending, signupState.error, "Your name is on the list");
+  useSuccessToast(signupPending, signupState.error, "You're signed up");
   useSuccessToast(guestPending, guestState.error, "Guests updated", () =>
     setEditingGuests(false)
   );
-  useSuccessToast(cancelPending, cancelState.error, "Your place was withdrawn");
+  useSuccessToast(cancelPending, cancelState.error, "Sign-up cancelled");
 
   // The guest date binds everyone, committee included.
   const guestsUi = guestsAllowed && phase === "guests";
   const guestsLater = guestsAllowed && !guestsUi;
   const guestsLaterNote = guestsOpenAt
-    ? `Guests may be added from ${guestsOpenAt}.`
-    : "Guest places open later.";
+    ? `You can add guests from ${guestsOpenAt}.`
+    : "Guest sign-ups open later.";
 
   if (cutoffPassed || phase === "closed") {
     return (
       <ClosedCard
         mySignup={mySignup}
-        title="The list is closed"
+        title="Sign-ups closed"
         detail={
           mySignup
-            ? "Write to the committee if you can no longer attend."
-            : "Write to the committee if you still wish to attend."
+            ? "Contact the committee if you can't make it."
+            : "Contact the committee if you'd still like to come."
         }
       />
     );
@@ -149,7 +149,7 @@ export function SignupCard({
       <Card className={confirmed ? "border-success/30" : "border-warning/30"}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            {confirmed ? "Your name is on the list" : "You are on the waitlist"}
+            {confirmed ? "You're signed up" : "You're on the waitlist"}
             <StatusBadge status={mySignup.status} />
           </CardTitle>
         </CardHeader>
@@ -181,7 +181,7 @@ export function SignupCard({
             >
               <p className="text-xs text-muted-foreground">
                 {guestsUi
-                  ? `Up to ${maxGuests} guest${maxGuests === 1 ? "" : "s"}. Guests occupy seats from the same booking.`
+                  ? `Up to ${maxGuests} guest${maxGuests === 1 ? "" : "s"}. Guests take seats from the same booking.`
                   : `${guestsLaterNote} Until then you can only remove guests.`}
               </p>
               <GuestPicker
@@ -215,16 +215,16 @@ export function SignupCard({
             loading={cancelPending}
             onClick={() => setConfirmCancel(true)}
           >
-            Withdraw my name
+            Cancel my sign-up
           </Button>
           <ConfirmDialog
             open={confirmCancel}
             onOpenChange={setConfirmCancel}
             destructive
-            title="Withdraw your name?"
-            description="If the table is full, the next member on the waitlist is offered the place and written to."
-            confirmLabel="Withdraw"
-            cancelLabel="Keep my place"
+            title="Cancel your sign-up?"
+            description="If anyone's on the waitlist, your seat goes to the next person."
+            confirmLabel="Cancel sign-up"
+            cancelLabel="Keep my seat"
             onConfirm={() => {
               setConfirmCancel(false);
               cancelFormRef.current?.requestSubmit();
@@ -239,8 +239,8 @@ export function SignupCard({
     return (
       <ClosedCard
         mySignup={null}
-        title={phaseTitle ?? "The list is not yet open"}
-        detail={phaseDetail ?? "Sign-ups have not opened for this luncheon."}
+        title={phaseTitle ?? "Sign-ups not open yet"}
+        detail={phaseDetail ?? "Sign-ups for this lunch haven't opened yet."}
       />
     );
   }
@@ -250,8 +250,7 @@ export function SignupCard({
       <Card className="border-border bg-muted/30">
         <CardContent className="space-y-2 py-5 text-sm text-muted-foreground">
           <p>
-            You may consult this luncheon, but names may be added only to the
-            next table that is currently open.
+            You can only sign up for the next open lunch.
           </p>
           {nextOpenHref ? (
             <p>
@@ -259,7 +258,7 @@ export function SignupCard({
                 href={nextOpenHref}
                 className="text-foreground underline underline-offset-4 hover:text-primary"
               >
-                {nextOpenTitle ?? "The next open luncheon"}
+                {nextOpenTitle ?? "Next open lunch"}
               </Link>
             </p>
           ) : null}
@@ -272,10 +271,10 @@ export function SignupCard({
     return (
       <ClosedCard
         mySignup={null}
-        title={phaseTitle ?? "Committee priority"}
+        title={phaseTitle ?? "Committee only for now"}
         detail={
           phaseDetail ??
-          "The committee has first claim on places. The list will open to the membership shortly."
+          "The committee signs up first. Sign-ups open to all members soon."
         }
       />
     );
@@ -286,7 +285,7 @@ export function SignupCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Add your name</CardTitle>
+        <CardTitle>Sign up</CardTitle>
         {phaseDetail ? (
           <p className="text-sm font-normal text-muted-foreground">
             {phaseDetail}
@@ -298,8 +297,8 @@ export function SignupCard({
           {guestsUi ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">
-                You may bring up to {maxGuests} guest{maxGuests === 1 ? "" : "s"}.
-                Guests occupy seats from the same booking.
+                You can bring up to {maxGuests} guest{maxGuests === 1 ? "" : "s"}.
+                Guests take seats from the same booking.
               </p>
               <GuestPicker
                 max={maxGuests}
@@ -310,8 +309,8 @@ export function SignupCard({
           ) : guestsLater ? (
             <p className="text-xs text-muted-foreground">
               {/* In the members window the header already gives the date. */}
-              {phase === "members" ? "Guest places open later." : guestsLaterNote}{" "}
-              Add your own name first.
+              {phase === "members" ? "Guest sign-ups open later." : guestsLaterNote}{" "}
+              Sign yourself up first.
             </p>
           ) : null}
           <FormError message={signupState.error} />
@@ -321,12 +320,12 @@ export function SignupCard({
             variant={willWaitlist ? "outline" : "default"}
             className="w-full sm:w-auto"
           >
-            {willWaitlist ? "Join the waitlist" : "Add my name"}
+            {willWaitlist ? "Join the waitlist" : "Sign up"}
           </Button>
           {willWaitlist ? (
             <p className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-              The table is full. You will be offered a place (and written to)
-              should one become free.
+              This lunch is full. If a seat frees up, the first person on the
+              waitlist gets it and an email.
             </p>
           ) : null}
         </form>

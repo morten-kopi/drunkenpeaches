@@ -23,7 +23,7 @@ const newsreader = Newsreader({
 });
 
 const description =
-  "The members' book for private dining clubs: luncheons, the list, the venues. Invitation only.";
+  "Members' app for private dining clubs: lunches, sign-ups and venues.";
 
 export const metadata: Metadata = {
   title: {

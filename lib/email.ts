@@ -167,7 +167,7 @@ function lunchValues(club: EmailClub, lunch: EmailLunch, name: string) {
 
 function lunchButton(lunch: EmailLunch) {
   return {
-    label: "Open the luncheon",
+    label: "View lunch",
     url: `${APP_URL()}/c/${lunch.clubSlug}/lunches/${lunch.id}`,
   };
 }
@@ -321,7 +321,7 @@ export async function sendCommitteeOpensReminder(opts: {
         opens: opts.opens.at,
         opens_day: opts.opens.day,
         members_follow: opts.membersOpen
-          ? `Member registration follows on ${opts.membersOpen.at}.`
+          ? `Members can sign up from ${opts.membersOpen.at}.`
           : "",
       },
       opts.club.name,
@@ -341,10 +341,10 @@ export async function sendMembersOpenReminder(opts: {
 }) {
   const content = await wording(opts.club.id, "members_open");
   const guestRule = !opts.guests
-    ? "No guests at this luncheon."
+    ? "No guests at this lunch."
     : opts.guests.opens
-      ? `Guest registration opens ${opts.guests.opens.at}, provided there is space.`
-      : `Each member may bring up to ${plural(opts.guests.maxPerMember, "guest")}, provided there is space.`;
+      ? `Guests can be added from ${opts.guests.opens.at}, if there's space.`
+      : `Each member can bring up to ${plural(opts.guests.maxPerMember, "guest")}, if there's space.`;
   return sendEach(opts.recipients, (r) =>
     compose(
       content,
