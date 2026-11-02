@@ -16,8 +16,8 @@ Function, e-Mail, Phone, Member since, Comments membership.
 - New members get an account with a temporary password of three words
   (e.g. claret-oyster-lantern) and are active straight away. Nobody is
   emailed. Passwords go to <club-slug>-temporary-passwords.csv next to the
-  spreadsheet (readable by you only) and are never printed. Each member must
-  choose their own password at first sign-in.
+  spreadsheet (readable by you only) and are never printed. Members can keep
+  it, set their own on their profile, or sign in with an emailed code.
 - A member whose email already has an account elsewhere is linked to it and
   keeps their own password.
 - Anyone with a Function gets the committee role, unless the function marks a

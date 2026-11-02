@@ -80,7 +80,7 @@ export function InviteForm({ slug }: { slug: string }) {
           </div>
         </form>
         <p className="mt-3 text-xs text-muted-foreground">
-          They&apos;ll get an email to set a password and fill in their
+          They&apos;ll get an email to accept the invitation and check their
           details.
         </p>
       </CardContent>

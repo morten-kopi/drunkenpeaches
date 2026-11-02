@@ -189,6 +189,31 @@ export async function sendPasswordResetEmail(opts: { to: string; resetLink: stri
   );
 }
 
+/**
+ * The sign-in code, with a button that does the same. The code is in the
+ * subject too, so a phone shows it in the notification.
+ */
+export async function sendSignInCodeEmail(opts: {
+  to: string;
+  code: string;
+  link: string;
+  clubName?: string;
+}) {
+  await send(
+    opts.to,
+    `Your sign-in code: ${opts.code}`,
+    emailHtml({
+      heading: "Your sign-in code",
+      body: `<p style="margin: 0 0 16px;">Enter this code on the sign-in page:</p>
+       <p style="margin: 0 0 16px; font-family: 'Courier New', monospace; font-size: 32px; font-weight: 600; letter-spacing: 6px;">${opts.code.replace(/\D/g, "")}</p>
+       <p style="margin: 0 0 16px;">Or sign in with the button below. The code and the button work once.</p>
+       <p style="margin: 0 0 16px; font-size: 13px; color: #78716c;">If you didn't ask to sign in, you can ignore this email.</p>`,
+      clubName: opts.clubName,
+      button: { label: "Sign in", url: opts.link },
+    })
+  );
+}
+
 // ---------- club emails --------------------------------------------------------
 
 export async function sendInviteEmail(opts: {

@@ -13,7 +13,7 @@ decisions as they're made. Singapore product baseline (what to build next):
 | **Backend** | Next.js Server Actions + Route Handlers | **No separate backend service** |
 | **UI** | Tailwind CSS v4 + shadcn/ui (base-ui) | "Editorial wine-cellar" design system, light + dark, mobile-first — see [Design system](#design-system-ui-2026-redesign) |
 | **Database** | Supabase (Postgres) | Also provides Auth, RLS, storage, edge functions |
-| **Auth** | Supabase Auth — **email + password only** (v1) | No social/magic-link for now |
+| **Auth** | Supabase Auth: **emailed code or password** | Member's choice; see [Sign-in and sessions](#sign-in-and-sessions) |
 | **Transactional email** | Resend | App notifications (confirmations, reminders) |
 | **Hosting** | Vercel (app) + Supabase cloud (data) | Free tiers cover early scale comfortably |
 
@@ -37,6 +37,40 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
   Next.js using the Supabase **service-role key** — never exposed to the client.
 - Business rules that must be reliable (waitlist auto-promotion, sign-up cutoff locking,
   capacity changes) live in **server-side logic**, not the client.
+
+## Sign-in and sessions
+
+- Members sign in with an emailed code or a password, whichever they prefer.
+  The sign-in page (`app/login-form.tsx`) opens on the code; "Sign in with a
+  password instead" switches, and the device remembers the method it last
+  used (localStorage).
+- **Code:** `sendSignInCodeAction` first checks the email is on a roster
+  (an active or invited membership with an account), because
+  `admin.generateLink` would create an account for an unknown email. The
+  email goes through Resend with the 6-digit code (also in the subject, so a
+  phone shows it in the notification) and a Sign in button. The reply is the
+  same for any email, so the form can't be used to find out who is a member.
+  One email per address per minute, read from the account's
+  `recovery_sent_at`. `verifySignInCodeAction` checks the code with
+  `verifyOtp` (type `email`). A new code replaces the previous one.
+- **Emailed links** (invite, sign-in, password reset) open `/auth/confirm`, a
+  page with a button. The link is used when the button is pressed
+  (`confirmLinkAction`), not when the page opens: mail filters open links to
+  scan them, which would use up a one-time link before the member clicks.
+- Every email sign-in activates the member's invited memberships. A member
+  who joins this way sees the welcome page (`/auth/set-password`) first,
+  where a password is optional.
+- **Passwords are optional.** Members set or change one on their profile.
+  Imported members' temporary passwords keep working until they choose their
+  own; `app_metadata.must_change_password` is cleared then, and forces
+  nothing.
+- **Sessions** use Supabase's defaults. The proxy (`lib/supabase/middleware.ts`)
+  renews the hourly access token, and the refresh token doesn't expire, so a
+  member stays signed in on a device until they sign out or clear its data.
+  The session cookie lasts 400 days and is renewed on each visit. Only the
+  server sets it: Safari caps cookies set by page scripts at 7 days, so the
+  browser Supabase client stays out of sign-in. Supabase's session time-box
+  and inactivity timeout (Authentication → Sessions) should stay off.
 
 ## Why this shape
 
@@ -116,10 +150,11 @@ layer sends the notification emails.
 
 Invite, sign-up confirmed, waitlisted, promoted from waitlist, guest
 confirmed (to the guest, once per lunch, marked by
-`signup_guests.confirmation_sent_at`), lunch changed/cancelled, password
-reset.
+`signup_guests.confirmation_sent_at`), lunch changed/cancelled, sign-in
+code, password reset.
 
-The wording of every club email (all but password reset) is editable by the
+The wording of every club email (all but the sign-in code and password
+reset, which are account emails) is editable by the
 committee in Settings → Emails. Defaults, placeholders, the "when / to whom"
 copy and the renderer live in `lib/email-templates.ts`; a club's edits are
 rows in `email_templates` (00009), one per edited email, and an email without

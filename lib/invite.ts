@@ -10,7 +10,7 @@ function appUrl() {
 
 /**
  * Put a person on the roster and send the invite email. A new person gets an
- * invite link to set a password; someone with an account already (a member of
+ * invite link that signs them in; someone with an account already (a member of
  * another chapter) is active at once. Joined on is today on the club's clock.
  * Any guest record with the same email is linked, so the lunches they came to
  * as a guest stay in their history. Runs with the service-role key.
