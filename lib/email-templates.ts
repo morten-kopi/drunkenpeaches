@@ -79,7 +79,7 @@ export const EMAILS: EmailDef[] = [
     placeholders: [P.name, P.club],
     subject: "You're invited to join {club}",
     heading: "You're invited to join {club}",
-    body: "You've been invited to join **{club}**.\n\nSet a password and fill in your details to get started:",
+    body: "You've been invited to join **{club}**.\n\nAccept the invitation to sign in and check your details:",
   },
   {
     key: "signup_confirmed",

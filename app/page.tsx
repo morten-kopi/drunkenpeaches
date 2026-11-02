@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth-shell";
@@ -27,20 +26,7 @@ export default async function LoginPage({
   const { next, error } = await searchParams;
 
   return (
-    <AuthShell
-      title="Sign in"
-      description="See upcoming lunches and sign up."
-      footer={
-        <p>
-          <Link
-            href="/auth/forgot"
-            className="text-foreground underline underline-offset-4 hover:text-primary"
-          >
-            Forgot your password?
-          </Link>
-        </p>
-      }
-    >
+    <AuthShell title="Sign in" description="See upcoming lunches and sign up.">
       {error ? <FormError message={error} className="mb-4" /> : null}
       <LoginForm next={next} />
     </AuthShell>

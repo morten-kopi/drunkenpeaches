@@ -28,7 +28,7 @@ export default async function SetPasswordPage() {
   return (
     <AuthShell
       title={`Welcome to ${clubName}`}
-      description="Choose a password and fill in your details."
+      description="Check your details. A password is optional: you can always sign in with a code from your email."
     >
       <SetPasswordForm
         defaults={{

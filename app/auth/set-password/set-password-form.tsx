@@ -20,18 +20,6 @@ export function SetPasswordForm({
 
   return (
     <form action={formAction} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="password">Choose a password</Label>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="new-password"
-          minLength={8}
-          required
-        />
-        <p className="text-xs text-muted-foreground">At least 8 characters.</p>
-      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="firstName">First name</Label>
@@ -77,9 +65,23 @@ export function SetPasswordForm({
           The committee shares these notes with the restaurant.
         </p>
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="password">Password (optional)</Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          minLength={8}
+        />
+        <p className="text-xs text-muted-foreground">
+          At least 8 characters. Leave it empty to sign in with a code from
+          your email.
+        </p>
+      </div>
       <FormError message={state.error} />
       <Button type="submit" className="w-full" loading={pending}>
-        {pending ? "Saving…" : "Finish setup"}
+        {pending ? "Saving…" : "Continue"}
       </Button>
     </form>
   );

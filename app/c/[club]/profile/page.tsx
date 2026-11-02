@@ -11,6 +11,7 @@ import {
   type AttendanceItem,
 } from "@/components/attendance-history";
 import { ProfileForm } from "./profile-form";
+import { PasswordForm } from "./password-form";
 
 export const metadata: Metadata = { title: "My profile" };
 
@@ -76,6 +77,8 @@ export default async function ProfilePage({
       </div>
 
       <ProfileForm slug={slug} membership={ctx.membership} />
+
+      <PasswordForm email={ctx.membership.email} />
 
       <Card>
         <CardHeader>
