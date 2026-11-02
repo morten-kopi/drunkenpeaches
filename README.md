@@ -9,7 +9,7 @@ See [docs/vision.md](docs/vision.md) and [docs/architecture.md](docs/architectur
 - **Next.js (App Router) + TypeScript** — full-stack, no separate backend
 - **Tailwind CSS + shadcn/ui**
 - **Supabase** — Postgres, Auth (email + password), Row-Level Security for tenant isolation
-- **Resend** — transactional email (invites, confirmations, reminders)
+- **Resend** — transactional email (sign-in codes, confirmations, reminders)
 - **Vercel** — hosting + daily reminder cron
 
 Every club/chapter is a tenant (`clubs` row). All tenant tables carry
@@ -27,7 +27,7 @@ SECURITY DEFINER Postgres functions so they're atomic and can't be bypassed.
    (or `supabase link && supabase db push` with the CLI).
 3. **Auth → Providers → Email**: leave email+password enabled. Since the app
    sends its own emails via Resend, you can disable Supabase's confirmation
-   emails (club creators are auto-confirmed; member invites go through Resend).
+   emails (club creators are auto-confirmed; sign-in codes go through Resend).
 4. **Auth → URL Configuration**: set the Site URL to your production domain.
 5. Copy from **Project Settings → API**: project URL, `anon` key,
    `service_role` key.
@@ -50,7 +50,7 @@ Import the repo and set the environment variables (see
 | `SUPABASE_SERVICE_ROLE_KEY` | server-only; used for invites & cron |
 | `RESEND_API_KEY` | optional — emails skipped if unset |
 | `EMAIL_FROM` | e.g. `Beefsteaks & Burgundy <lunch@yourdomain.com>` |
-| `NEXT_PUBLIC_APP_URL` | your production URL (used in invite links) |
+| `NEXT_PUBLIC_APP_URL` | your production URL (used in email links) |
 | `CRON_SECRET` | any random string; protects the reminder cron |
 
 `vercel.json` registers a daily cron (`/api/cron/reminders`, 01:00 UTC ≈ 9am
@@ -61,7 +61,7 @@ Singapore) that emails confirmed attendees ~2 days before a lunch.
 1. Create your club. Self-serve signup is switched off in this deployment; to use it,
    restore `app/_landing/signup/` as described at the top of `app/_landing/page.tsx`,
    then visit `/signup`. You become the club's first committee admin.
-2. **Members** → invite the roster (they get a Resend email to set a password).
+2. **Members** → add the roster. The app sends no welcome email; members sign in with an emailed code.
 3. **Venues** → add the restaurants you book (or create one from the lunch form).
 4. **New lunch** → book the restaurant first; capacity X comes from that
    booking. Decide whether guests are allowed. Lunches start as **drafts**;

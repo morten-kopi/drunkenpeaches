@@ -70,18 +70,18 @@ export default async function GuestDetailPage({
           <CardTitle>Make {guest.first_name} a member</CardTitle>
           <p className="text-sm font-normal text-muted-foreground">
             Adds {guest.first_name} to the member list with today as the joining
-            date and sends the invite email to {guest.email}. The lunches below
-            stay in their history.
+            date. The app sends no email: in your welcome email, ask them to
+            sign in with {guest.email}. The lunches below stay in their history.
           </p>
         </CardHeader>
         <CardContent>
           <form action={upgradeGuestAction.bind(null, slug, guest.id)}>
             <ConfirmSubmit
               confirmTitle={`Make ${guest.full_name} a member?`}
-              confirmMessage={`The invite email goes to ${guest.email} right away.`}
-              confirmLabel="Make member and send invite"
+              confirmMessage={`${guest.full_name} joins the member list today. No email goes out.`}
+              confirmLabel="Make member"
             >
-              Make member and send invite
+              Make member
             </ConfirmSubmit>
           </form>
         </CardContent>
