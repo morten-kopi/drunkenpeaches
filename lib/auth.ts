@@ -13,6 +13,16 @@ export function safeNext(next: string | null | undefined) {
 }
 
 /**
+ * The one-time sign-in link, from `generateLink`'s hashed token. It opens
+ * /auth/confirm, which uses it when the button is pressed, so a mail filter
+ * or a chat app's link preview can't use it up.
+ */
+export function signInLinkUrl(hashedToken: string, next: string) {
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  return `${base}/auth/confirm?token_hash=${hashedToken}&type=email&next=${encodeURIComponent(next)}`;
+}
+
+/**
  * Turns invited memberships for this email into active ones, linked to the
  * signed-in account. Runs after every email sign-in (invite link, sign-in
  * link or code), so an invited member who signs in with a code is let in

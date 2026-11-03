@@ -13,6 +13,7 @@ import {
 } from "@/components/attendance-history";
 import { appearanceItems, guestAppearances } from "@/lib/guest-history";
 import { MemberEditForm } from "./member-edit-form";
+import { SignInLink } from "./sign-in-link";
 
 export const metadata: Metadata = { title: "Edit member" };
 
@@ -82,6 +83,11 @@ export default async function MemberDetailPage({
     b.date.localeCompare(a.date)
   );
 
+  const isSelf = member.id === ctx.membership.id;
+  // The same members who can ask for a sign-in code themselves.
+  const canGetSignInLink =
+    !isSelf && !!member.user_id && (member.status === "active" || member.status === "invited");
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -108,11 +114,15 @@ export default async function MemberDetailPage({
         </div>
       </div>
 
-      <MemberEditForm
-        slug={slug}
-        member={member}
-        isSelf={member.id === ctx.membership.id}
-      />
+      <MemberEditForm slug={slug} member={member} isSelf={isSelf} />
+
+      {canGetSignInLink ? (
+        <SignInLink
+          slug={slug}
+          membershipId={member.id}
+          name={member.first_name || member.full_name || member.email}
+        />
+      ) : null}
 
       <AttendanceHistory items={history} />
     </div>

@@ -4,8 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireCommittee, requireMember, errorMessage } from "@/lib/action-helpers";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { signInLinkUrl } from "@/lib/auth";
 import { inviteToClub } from "@/lib/invite";
 import type { FormState } from "./auth";
+
+export type SignInLinkState = { error?: string; link?: string };
 
 const inviteSchema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -97,6 +101,55 @@ export async function updateMemberAction(
   }
   revalidatePath(`/c/${slug}/members`);
   redirect(`/c/${slug}/members`);
+}
+
+/**
+ * A one-time sign-in link for a member whose sign-in email doesn't arrive,
+ * for the committee to send them another way. It is the same link as in the
+ * sign-in email, and like a new code it replaces any code or link sent before.
+ */
+export async function createSignInLinkAction(
+  slug: string,
+  membershipId: string,
+  _prev: SignInLinkState,
+  _formData: FormData
+): Promise<SignInLinkState> {
+  try {
+    const { club, supabase, membership: me } = await requireCommittee(slug);
+    const { data: member, error } = await supabase
+      .from("memberships")
+      .select("user_id, status")
+      .eq("id", membershipId)
+      .eq("club_id", club.id)
+      .maybeSingle();
+    if (error) return { error: error.message };
+    if (!member?.user_id || !["active", "invited"].includes(member.status))
+      return { error: "Only active and invited members can get a sign-in link." };
+
+    const admin = createAdminClient();
+    const { data: found, error: userErr } = await admin.auth.admin.getUserById(
+      member.user_id
+    );
+    const email = found?.user?.email;
+    if (userErr || !email) return { error: "This member has no account to sign in to." };
+
+    // The account's own email: for any other address generateLink would
+    // create a new account.
+    const { data, error: linkErr } = await admin.auth.admin.generateLink({
+      type: "magiclink",
+      email,
+    });
+    if (linkErr || !data) {
+      console.error("[auth] could not create a sign-in link", linkErr);
+      return { error: "Could not create a sign-in link. Try again." };
+    }
+    console.info(
+      `[auth] committee membership ${me.id} created a sign-in link for membership ${membershipId}`
+    );
+    return { link: signInLinkUrl(data.properties.hashed_token, "/") };
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
 }
 
 /** Member edits their own profile (via SECURITY DEFINER function). */
