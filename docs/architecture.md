@@ -57,6 +57,14 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
   page with a button. The link is used when the button is pressed
   (`confirmLinkAction`), not when the page opens: mail filters open links to
   scan them, which would use up a one-time link before the member clicks.
+- **Sign-in link from the committee.** Some company mail filters hold back
+  the sign-in email without telling the member. For them, a committee member
+  opens the member's page and creates a sign-in link to send another way,
+  such as WhatsApp (`createSignInLinkAction`). It is the same one-time link
+  as in the sign-in email, made for the account linked to the membership:
+  it works once and replaces any code sent before. Offered for active and
+  invited members with an account, not on your own page. Each one is logged
+  as `[auth] committee membership … created a sign-in link`.
 - Every email sign-in activates the member's invited memberships. A member
   who joins this way sees the welcome page (`/auth/set-password`) first,
   where a password is optional.

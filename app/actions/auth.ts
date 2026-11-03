@@ -5,7 +5,7 @@ import type { EmailOtpType, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { errorMessage, ilikeExact } from "@/lib/action-helpers";
-import { activateInvitedMemberships, safeNext } from "@/lib/auth";
+import { activateInvitedMemberships, safeNext, signInLinkUrl } from "@/lib/auth";
 import { sendPasswordResetEmail, sendSignInCodeEmail } from "@/lib/email";
 
 export type FormState = { error?: string; success?: boolean };
@@ -100,7 +100,7 @@ async function emailSignInCode(email: string, next: string) {
   await sendSignInCodeEmail({
     to: email,
     code: data.properties.email_otp,
-    link: `${appUrl()}/auth/confirm?token_hash=${data.properties.hashed_token}&type=email&next=${encodeURIComponent(next)}`,
+    link: signInLinkUrl(data.properties.hashed_token, next),
     clubName: club?.name,
   });
 }
