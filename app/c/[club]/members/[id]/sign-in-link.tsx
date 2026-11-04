@@ -34,7 +34,7 @@ export function SignInLink({
           If {name}&apos;s sign-in email doesn&apos;t arrive, create a link here
           and send it to them yourself, for example on WhatsApp. Anyone with the
           link can sign in as {name}, so send it only to them. It works once,
-          and stops working if they ask for a new code.
+          within 24 hours, and stops working if they ask for a new code.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

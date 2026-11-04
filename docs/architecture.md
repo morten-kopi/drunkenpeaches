@@ -47,12 +47,18 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
 - **Code:** `sendSignInCodeAction` first checks the email is on a roster
   (an active or invited membership with an account), because
   `admin.generateLink` would create an account for an unknown email. The
-  email goes through Resend with the 6-digit code (also in the subject, so a
+  email goes through Resend with the code (also in the subject, so a
   phone shows it in the notification) and a Sign in button. The reply is the
   same for any email, so the form can't be used to find out who is a member.
   One email per address per minute, read from the account's
   `recovery_sent_at`. `verifySignInCodeAction` checks the code with
   `verifyOtp` (type `email`). A new code replaces the previous one.
+- **How long codes and links last** is a Supabase Auth setting, not code:
+  Authentication → Sign In / Providers → Email, "Email OTP Expiration".
+  It is 86400 seconds (24 hours, Supabase's maximum) so a committee sign-in
+  link still works the next day, and it covers every emailed code and link.
+  "Email OTP Length" is 8 digits to offset the longer window; the code field
+  accepts 6 to 10.
 - **Emailed links** (invite, sign-in, password reset) open `/auth/confirm`, a
   page with a button. The link is used when the button is pressed
   (`confirmLinkAction`), not when the page opens: mail filters open links to
@@ -64,7 +70,8 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
   as in the sign-in email, made for the account linked to the membership:
   it works once and replaces any code sent before. Offered for active and
   invited members with an account, not on your own page. Each one is logged
-  as `[auth] committee membership … created a sign-in link`.
+  as `[auth] committee membership … created a sign-in link`. It lasts 24
+  hours (see "How long codes and links last").
 - Every email sign-in activates the member's invited memberships. A member
   who joins this way sees the welcome page (`/auth/set-password`) first,
   where a password is optional.
@@ -96,7 +103,7 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
   `guests_phase_days` (default 2 / 14 / 14) for the three-phase sign-up
   windows (`supabase/migrations/00002_signup_phases.sql`), and `timezone`.
 - **memberships** — `user ↔ club ↔ role` plus the member's club-scoped profile
-  (name, phone, dietary, `function` for a club office). `role`
+  (name, phone, `function` for a club office). `role`
   (member/committee), `status` (invited/active/resigned/lapsed/removed —
   never hard-deleted).
 - **venues** — the restaurants the club books: name, address, contact, room
@@ -115,11 +122,16 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
   `guest_count` (guests consume seats), `created_at` is the FCFS order,
   `attended` for history.
 - **guests** (00008) — people members bring to lunches: first and last name,
-  email, dietary notes. One row per person per club, matched on email, so a
+  email. One row per person per club, matched on email, so a
   guest brought by two members is one record. Guests never log in and are
   not memberships. `membership_id` is set when the committee makes a guest a
   member (`inviteToClub` in `lib/invite.ts` links any guest with the invited
   email), and their guest lunches stay in the member's history.
+- **Dietary notes are no longer used.** `memberships.dietary_notes` and
+  `guests.dietary_notes` stay in the database with what was entered, but the
+  app neither shows nor asks for them: not on forms, the restaurant list or
+  the exports. `update_my_profile` still takes `p_dietary_notes`, so the
+  profile action passes the stored value back unchanged.
 - **signup_guests** (00008) — the guests on a signup. `signups.guest_count`
   stays the seat count every capacity rule reads; the sign-up functions keep
   it equal to the number of linked guests. Rows stay when a signup is

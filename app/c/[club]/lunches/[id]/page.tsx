@@ -65,10 +65,7 @@ import { EditGuestsDialog } from "./edit-guests-dialog";
 import { CommitteeAddForm } from "./committee-add-form";
 
 type SignupRow = Signup & {
-  memberships: Pick<
-    Membership,
-    "id" | "full_name" | "email" | "dietary_notes"
-  > | null;
+  memberships: Pick<Membership, "id" | "full_name" | "email"> | null;
 };
 
 export default async function LunchDetailPage({
@@ -96,12 +93,12 @@ export default async function LunchDetailPage({
 
   const { data: signupData } = await supabase
     .from("signups")
-    .select("*, memberships(id, full_name, email, dietary_notes)")
+    .select("*, memberships(id, full_name, email)")
     .eq("lunch_id", id)
     .order("created_at");
   const signups = (signupData ?? []) as SignupRow[];
 
-  // Guest names for everyone; email and dietary notes for the committee.
+  // Guest names for everyone; email for the committee.
   const { data: lunchGuestData } = await supabase.rpc("lunch_guests", {
     p_lunch: id,
   });
@@ -694,7 +691,7 @@ export default async function LunchDetailPage({
           {/* Restaurant list */}
           <Card>
             <CardHeader>
-              <CardTitle>Restaurant list and dietary notes</CardTitle>
+              <CardTitle>Restaurant list</CardTitle>
               {confirmed.length > 0 ? (
                 <div className="flex flex-wrap gap-2 pt-1">
                   <CopyButton

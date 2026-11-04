@@ -24,17 +24,11 @@ type Slot = {
   first_name: string;
   last_name: string;
   email: string;
-  dietary_notes: string;
 };
 
 function toEntry(s: Slot): GuestEntry {
   return s.pick === NEW
-    ? {
-        first_name: s.first_name,
-        last_name: s.last_name,
-        email: s.email,
-        dietary_notes: s.dietary_notes || undefined,
-      }
+    ? { first_name: s.first_name, last_name: s.last_name, email: s.email }
     : { id: s.pick };
 }
 
@@ -71,7 +65,6 @@ export function GuestPicker({
       first_name: "",
       last_name: "",
       email: "",
-      dietary_notes: "",
     }))
   );
   const [nextKey, setNextKey] = useState(initial.length);
@@ -94,7 +87,7 @@ export function GuestPicker({
   const add = () => {
     setAll([
       ...slots,
-      { key: nextKey, pick: NEW, first_name: "", last_name: "", email: "", dietary_notes: "" },
+      { key: nextKey, pick: NEW, first_name: "", last_name: "", email: "" },
     ]);
     setNextKey((k) => k + 1);
   };
@@ -176,17 +169,6 @@ export function GuestPicker({
                     autoComplete="off"
                     value={s.email}
                     onChange={(e) => update(s.key, { email: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor={`${id}-diet`}>
-                    Dietary notes <span className="font-normal text-muted-foreground">(optional)</span>
-                  </Label>
-                  <Input
-                    id={`${id}-diet`}
-                    autoComplete="off"
-                    value={s.dietary_notes}
-                    onChange={(e) => update(s.key, { dietary_notes: e.target.value })}
                   />
                 </div>
               </div>

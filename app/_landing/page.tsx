@@ -20,7 +20,7 @@ const NOTICES = [
   {
     kicker: "The committee",
     title: "The secretary’s desk",
-    body: "Venues on file. Dietary notes for the house. Manual overrides when a member telephones.",
+    body: "Venues on file. Manual overrides when a member telephones.",
   },
   {
     kicker: "Guests",

@@ -12,10 +12,9 @@ const guestSchema = z.object({
   firstName: z.string().trim().min(1, "First name is required").max(80),
   lastName: z.string().trim().min(1, "Last name is required").max(80),
   email: z.string().trim().toLowerCase().email("Enter a valid email"),
-  dietary: z.string().trim().max(500).optional(),
 });
 
-/** Committee corrects a guest's name, email or dietary notes. */
+/** Committee corrects a guest's name or email. */
 export async function updateGuestAction(
   slug: string,
   guestId: string,
@@ -28,7 +27,6 @@ export async function updateGuestAction(
       firstName: formData.get("firstName"),
       lastName: formData.get("lastName"),
       email: formData.get("email"),
-      dietary: String(formData.get("dietary") ?? ""),
     });
     if (!parsed.success) return { error: parsed.error.issues[0].message };
     const d = parsed.data;
@@ -48,7 +46,6 @@ export async function updateGuestAction(
         first_name: d.firstName,
         last_name: d.lastName,
         email: d.email,
-        dietary_notes: d.dietary || null,
       })
       .eq("id", guestId)
       .eq("club_id", club.id);

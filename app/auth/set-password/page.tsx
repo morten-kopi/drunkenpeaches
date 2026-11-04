@@ -15,7 +15,7 @@ export default async function SetPasswordPage() {
 
   const { data: membership } = await supabase
     .from("memberships")
-    .select("first_name, last_name, phone, dietary_notes, clubs(name)")
+    .select("first_name, last_name, phone, clubs(name)")
     .eq("user_id", user.id)
     .eq("status", "active")
     .limit(1)
@@ -35,7 +35,6 @@ export default async function SetPasswordPage() {
           firstName: membership?.first_name ?? "",
           lastName: membership?.last_name ?? "",
           phone: membership?.phone ?? "",
-          dietary: membership?.dietary_notes ?? "",
         }}
       />
     </AuthShell>

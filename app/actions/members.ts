@@ -45,7 +45,6 @@ const editSchema = z.object({
   firstName: z.string().trim().min(1, "First name is required").max(80),
   lastName: z.string().trim().min(1, "Last name is required").max(80),
   phone: z.string().max(40).optional(),
-  dietary: z.string().max(500).optional(),
   function: z.string().trim().max(80).optional(),
   comments: z.string().trim().max(2000).optional(),
   role: z.enum(["member", "committee"]),
@@ -66,7 +65,6 @@ export async function updateMemberAction(
       firstName: formData.get("firstName"),
       lastName: formData.get("lastName"),
       phone: String(formData.get("phone") ?? ""),
-      dietary: String(formData.get("dietary") ?? ""),
       function: String(formData.get("function") ?? ""),
       comments: String(formData.get("comments") ?? ""),
       role: formData.get("role"),
@@ -86,7 +84,6 @@ export async function updateMemberAction(
         first_name: d.firstName,
         last_name: d.lastName,
         phone: d.phone || null,
-        dietary_notes: d.dietary || null,
         function: d.function || null,
         comments: d.comments || null,
         role: d.role,
@@ -159,7 +156,7 @@ export async function updateMyProfileAction(
   formData: FormData
 ): Promise<FormState> {
   try {
-    const { supabase, club } = await requireMember(slug);
+    const { supabase, club, membership } = await requireMember(slug);
     const firstName = String(formData.get("firstName") ?? "").trim();
     const lastName = String(formData.get("lastName") ?? "").trim();
     if (!firstName || !lastName) return { error: "Your name is required" };
@@ -168,7 +165,8 @@ export async function updateMyProfileAction(
       p_first_name: firstName,
       p_last_name: lastName,
       p_phone: String(formData.get("phone") ?? "").trim() || null,
-      p_dietary_notes: String(formData.get("dietary") ?? "").trim() || null,
+      // No longer asked for in the app; pass the stored notes back unchanged.
+      p_dietary_notes: membership.dietary_notes,
     });
     if (error) return { error: error.message };
   } catch (e) {
