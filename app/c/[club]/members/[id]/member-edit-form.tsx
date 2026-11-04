@@ -72,12 +72,19 @@ export function MemberEditForm({
         </div>
 
         <div className="space-y-2">
-          <Label>Email</Label>
-          <div className="flex h-9 items-center rounded-lg border border-border bg-muted/50 px-3 text-sm text-muted-foreground">
-            {member.email}
-          </div>
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="off"
+            defaultValue={member.email}
+            required
+          />
           <p className="text-xs text-muted-foreground">
-            Email is the member&apos;s login and can&apos;t be changed here.
+            Also the address they sign in with. If you change it, let them
+            know: from then on they sign in with the new one. Their password
+            stays the same.
           </p>
         </div>
 

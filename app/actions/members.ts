@@ -7,6 +7,7 @@ import { requireCommittee, requireMember, errorMessage } from "@/lib/action-help
 import { createAdminClient } from "@/lib/supabase/admin";
 import { signInLinkUrl } from "@/lib/auth";
 import { inviteToClub } from "@/lib/invite";
+import { changeMemberEmail } from "@/lib/member-email";
 import type { FormState } from "./auth";
 
 export type SignInLinkState = { error?: string; link?: string };
@@ -42,6 +43,7 @@ export async function inviteMemberAction(
 }
 
 const editSchema = z.object({
+  email: z.string().email("Enter a valid email"),
   firstName: z.string().trim().min(1, "First name is required").max(80),
   lastName: z.string().trim().min(1, "Last name is required").max(80),
   phone: z.string().max(40).optional(),
@@ -52,7 +54,7 @@ const editSchema = z.object({
   joinedOn: z.string().optional(),
 });
 
-/** Committee edits a member's details, role, hats and status. */
+/** Committee edits a member's details, email, role, hats and status. */
 export async function updateMemberAction(
   slug: string,
   membershipId: string,
@@ -62,6 +64,7 @@ export async function updateMemberAction(
   try {
     const { club, supabase, membership: me } = await requireCommittee(slug);
     const parsed = editSchema.safeParse({
+      email: String(formData.get("email") ?? "").trim().toLowerCase(),
       firstName: formData.get("firstName"),
       lastName: formData.get("lastName"),
       phone: String(formData.get("phone") ?? ""),
@@ -76,6 +79,27 @@ export async function updateMemberAction(
 
     if (me.id === membershipId && d.role !== "committee")
       return { error: "You can't demote yourself. Ask another committee member." };
+
+    const { data: current, error: currentErr } = await supabase
+      .from("memberships")
+      .select("email, user_id")
+      .eq("id", membershipId)
+      .eq("club_id", club.id)
+      .maybeSingle();
+    if (currentErr) return { error: currentErr.message };
+    if (!current) return { error: "Member not found" };
+
+    // First, so a taken address stops the save before anything changes.
+    if (d.email !== current.email.toLowerCase()) {
+      await changeMemberEmail(
+        club,
+        { id: membershipId, userId: current.user_id, email: current.email },
+        d.email
+      );
+      console.info(
+        `[auth] committee membership ${me.id} changed the email of membership ${membershipId}`
+      );
+    }
 
     // Members are never hard-deleted: status change only.
     const { error } = await supabase

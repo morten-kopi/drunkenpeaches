@@ -72,6 +72,18 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
   invited members with an account, not on your own page. Each one is logged
   as `[auth] committee membership … created a sign-in link`. It lasts 24
   hours (see "How long codes and links last").
+- **Changing a member's email.** The committee edits it on the member's page
+  (`changeMemberEmail` in `lib/member-email.ts`). The address is kept twice:
+  on the account, which sign-in checks, and on the roster
+  (`memberships.email`), which club emails go to. Sign-in sends no code when
+  they differ, so both change together: the account first, set directly so
+  Supabase sends no confirmation emails, then every membership of that
+  account. If the roster update fails, the account's old address is put back.
+  An address already on the roster or used by another account is refused.
+  The password and signed-in devices keep working. Each change is logged as
+  `[auth] committee membership … changed the email of membership …`. Guest
+  records aren't relinked; the guest rules also match a member by email, so
+  a guest record with the new address counts as the member.
 - Every email sign-in activates the member's invited memberships. A member
   who joins this way sees the welcome page (`/auth/set-password`) first,
   where a password is optional.
