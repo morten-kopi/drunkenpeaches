@@ -32,10 +32,6 @@ export function GuestEditForm({ slug, guest }: { slug: string; guest: Guest }) {
           <Label htmlFor="email">Email</Label>
           <Input id="email" name="email" type="email" defaultValue={guest.email} required />
         </div>
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="dietary">Dietary notes</Label>
-          <Input id="dietary" name="dietary" defaultValue={guest.dietary_notes ?? ""} />
-        </div>
       </div>
       <FormError message={state.error} />
       <Button type="submit" loading={pending}>

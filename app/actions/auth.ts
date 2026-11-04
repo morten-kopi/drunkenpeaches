@@ -273,7 +273,6 @@ export async function completeProfileAction(
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim() || null;
-  const dietary = String(formData.get("dietary") ?? "").trim() || null;
 
   if (password && password.length < 8)
     return { error: "Password must be at least 8 characters" };
@@ -300,7 +299,6 @@ export async function completeProfileAction(
         first_name: firstName,
         last_name: lastName,
         phone,
-        dietary_notes: dietary,
       })
       .eq("user_id", user.id);
     if (profErr) return { error: profErr.message };

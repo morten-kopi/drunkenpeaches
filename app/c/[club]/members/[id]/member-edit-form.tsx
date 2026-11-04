@@ -111,16 +111,6 @@ export function MemberEditForm({
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="dietary">Dietary preferences</Label>
-          <Textarea
-            id="dietary"
-            name="dietary"
-            rows={2}
-            defaultValue={member.dietary_notes ?? ""}
-          />
-        </div>
-
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>

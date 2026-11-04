@@ -4,7 +4,7 @@ import type { LunchGuest } from "@/lib/types";
 /** One guest as the guest picker sends it: someone on file, or someone new. */
 export type GuestEntry =
   | { id: string }
-  | { first_name: string; last_name: string; email: string; dietary_notes?: string };
+  | { first_name: string; last_name: string; email: string };
 
 const newGuest = z.object({
   first_name: z.string().trim().min(1, "Each guest needs a first name").max(80),
@@ -14,7 +14,6 @@ const newGuest = z.object({
     .trim()
     .toLowerCase()
     .email("Enter a valid email for each guest"),
-  dietary_notes: z.string().trim().max(500).optional(),
 });
 
 const entries = z.array(z.union([z.object({ id: z.uuid() }), newGuest])).max(20);

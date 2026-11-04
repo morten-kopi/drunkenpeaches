@@ -5,13 +5,12 @@ import { completeProfileAction, type FormState } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { FormError } from "@/components/form-error";
 
 export function SetPasswordForm({
   defaults,
 }: {
-  defaults: { firstName: string; lastName: string; phone: string; dietary: string };
+  defaults: { firstName: string; lastName: string; phone: string };
 }) {
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     completeProfileAction,
@@ -51,19 +50,6 @@ export function SetPasswordForm({
           autoComplete="tel"
           defaultValue={defaults.phone}
         />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="dietary">Dietary preferences (optional)</Label>
-        <Textarea
-          id="dietary"
-          name="dietary"
-          placeholder="e.g. no shellfish; vegetarian"
-          rows={3}
-          defaultValue={defaults.dietary}
-        />
-        <p className="text-xs text-muted-foreground">
-          The committee shares these notes with the restaurant.
-        </p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Password (optional)</Label>

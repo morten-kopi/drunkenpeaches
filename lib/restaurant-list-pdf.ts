@@ -1,6 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import {
-  dietaryLine,
   guestLabel,
   headcount,
   lunchWhenWhere,
@@ -23,9 +22,8 @@ const PAD = 6;
 
 const COLUMNS = [
   { key: "n", label: "#", width: 24 },
-  { key: "name", label: "Name", width: 160 },
-  { key: "guests", label: "Guests", width: 150 },
-  { key: "dietary", label: "Dietary notes", width: PAGE_W - 2 * MARGIN - 334 },
+  { key: "name", label: "Name", width: 180 },
+  { key: "guests", label: "Guests", width: PAGE_W - 2 * MARGIN - 204 },
 ] as const;
 
 // Letters with a stroke have no accent to strip.
@@ -143,8 +141,7 @@ export async function restaurantListPdf(opts: {
     const cells: Record<(typeof COLUMNS)[number]["key"], string[]> = {
       n: [String(i + 1)],
       name: wrap(bold, drawable(bold, row.name), BODY, COLUMNS[1].width - PAD),
-      guests: wrap(regular, drawable(regular, guestLabel(row)), BODY, COLUMNS[2].width - PAD),
-      dietary: wrap(regular, drawable(regular, dietaryLine(row)), BODY, COLUMNS[3].width),
+      guests: wrap(regular, drawable(regular, guestLabel(row)), BODY, COLUMNS[2].width),
     };
     const lines = Math.max(...Object.values(cells).map((c) => c.length));
     const height = lines * LINE;
