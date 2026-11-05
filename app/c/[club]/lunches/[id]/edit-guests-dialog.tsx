@@ -43,15 +43,37 @@ export function EditGuestsDialog({
   checksSeats: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [picks, setPicks] = useState<string[]>([]);
   const [state, formAction, pending] = useActionState<FormState, FormData>(
     committeeSetGuestsAction.bind(null, slug, lunchId, signupId),
     {}
   );
-  useSuccessToast(pending, state.error, "Guests updated", () => setOpen(false));
+
+  // When the only change is taking guests off, the button says so.
+  const removed = guests.filter((g) => !picks.includes(g.id)).length;
+  const added = picks.filter((p) => !guests.some((g) => g.id === p)).length;
+  const onlyRemoving = removed > 0 && added === 0;
+  // The seat override matters only when the party grows.
+  const growing = picks.length > guests.length;
+
+  useSuccessToast(
+    pending,
+    state.error,
+    onlyRemoving ? (removed === 1 ? "Guest removed" : "Guests removed") : "Guests updated",
+    () => setOpen(false)
+  );
 
   return (
     <>
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          setPicks(guests.map((g) => g.id));
+          setOpen(true);
+        }}
+      >
         Guests
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -67,8 +89,13 @@ export function EditGuestsDialog({
           {/* Remounts on open, so the picker starts from the saved guests. */}
           {open ? (
             <form action={formAction} className="space-y-4">
-              <GuestPicker max={COMMITTEE_MAX_GUESTS} options={options} initial={guests} />
-              {checksSeats ? (
+              <GuestPicker
+                max={COMMITTEE_MAX_GUESTS}
+                options={options}
+                initial={guests}
+                onPicksChange={setPicks}
+              />
+              {checksSeats && growing ? (
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox name="force" />
                   Seat even if full (override)
@@ -80,7 +107,11 @@ export function EditGuestsDialog({
                   Cancel
                 </Button>
                 <Button type="submit" loading={pending}>
-                  Save guests
+                  {onlyRemoving
+                    ? removed === 1
+                      ? "Remove guest"
+                      : `Remove ${removed} guests`
+                    : "Save guests"}
                 </Button>
               </DialogFooter>
             </form>

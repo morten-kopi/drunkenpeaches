@@ -40,6 +40,8 @@ interface GuestPickerProps {
   /** Guests on the signup now. */
   initial?: GuestOption[];
   onCountChange?: (count: number) => void;
+  /** The pick in each slot: a guest id, or "__new" for someone typed in. */
+  onPicksChange?: (picks: string[]) => void;
   /** Name of the hidden field that carries the list as JSON. */
   name?: string;
 }
@@ -55,6 +57,7 @@ export function GuestPicker({
   options,
   initial = [],
   onCountChange,
+  onPicksChange,
   name = "guests",
 }: GuestPickerProps) {
   const uid = useId();
@@ -72,6 +75,7 @@ export function GuestPicker({
   const setAll = (next: Slot[]) => {
     setSlots(next);
     if (next.length !== slots.length) onCountChange?.(next.length);
+    onPicksChange?.(next.map((s) => s.pick));
   };
 
   // Current guests stay pickable even if the options list leaves them out.
