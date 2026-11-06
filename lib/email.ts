@@ -20,6 +20,8 @@ import {
 // edit of it in Settings.
 
 const FROM = () => process.env.EMAIL_FROM ?? "Drunken Peaches <onboarding@resend.dev>";
+// Where members' replies go. Unset means no Reply-To, so replies go to FROM.
+const REPLY_TO = () => process.env.EMAIL_REPLY_TO || undefined;
 const APP_URL = () => process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 export type EmailClub = { id: string; name: string };
@@ -49,7 +51,7 @@ async function send(to: string, subject: string, html: string): Promise<boolean>
   }
   try {
     const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({ from: FROM(), to, subject, html });
+    const { error } = await resend.emails.send({ from: FROM(), replyTo: REPLY_TO(), to, subject, html });
     if (error) {
       console.error(`[email failed] to=${to} subject="${subject}"`, error);
       return false;
@@ -84,7 +86,7 @@ async function sendEach<R extends Recipient>(
   for (let i = 0; i < recipients.length; i += 100) {
     const chunk = recipients.slice(i, i + 100).map((r) => ({ to: r.email, ...message(r) }));
     try {
-      const { error } = await resend.batch.send(chunk.map((m) => ({ from: FROM(), ...m })));
+      const { error } = await resend.batch.send(chunk.map((m) => ({ from: FROM(), replyTo: REPLY_TO(), ...m })));
       if (error) console.error(`[email batch failed] subject="${chunk[0].subject}"`, error);
       else delivered = true;
     } catch (err) {

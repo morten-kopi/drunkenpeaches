@@ -50,6 +50,7 @@ Import the repo and set the environment variables (see
 | `SUPABASE_SERVICE_ROLE_KEY` | server-only; used for invites & cron |
 | `RESEND_API_KEY` | optional — emails skipped if unset |
 | `EMAIL_FROM` | e.g. `Beefsteaks & Burgundy <lunch@yourdomain.com>` |
+| `EMAIL_REPLY_TO` | optional — where members' replies go, e.g. the committee's inbox |
 | `NEXT_PUBLIC_APP_URL` | your production URL (used in email links) |
 | `CRON_SECRET` | any random string; protects the reminder cron |
 
