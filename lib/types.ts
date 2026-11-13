@@ -84,6 +84,8 @@ export interface Lunch {
   reminder_sent_at: string | null;
   committee_reminder_sent_at: string | null;
   members_reminder_sent_at: string | null;
+  /** When the "sign-ups now open" email went out, at members_open_at. */
+  members_open_now_sent_at: string | null;
   guests_reminder_sent_at: string | null;
   created_at: string;
 }

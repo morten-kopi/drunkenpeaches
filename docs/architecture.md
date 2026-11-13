@@ -194,8 +194,8 @@ committee in Settings → Emails. Defaults, placeholders, the "when / to whom"
 copy and the renderer live in `lib/email-templates.ts`; a club's edits are
 rows in `email_templates` (00009), one per edited email, and an email without
 a row follows the defaults. The default wording uses no contractions
-("you are", not "you're"). The button and signature are added by
-`lib/email.ts` and can't be edited. Wording identical to the default is not
+("you are", not "you're"). The club's name on top, the button and the
+signature are added by `lib/email.ts` and can't be edited. Wording identical to the default is not
 stored. Sending reads the table with the service role and falls back to the
 default wording if it can't. A daily Vercel cron
 (`/api/cron/reminders`, 09:00 Singapore) sends four reminders per released
@@ -215,7 +215,24 @@ No email on release (per vision). Emails no-op gracefully when
 `RESEND_API_KEY` is unset, and the cron still marks reminders as sent, so
 turning Resend on never sends a backlog. A reminder Resend rejects outright
 (for example before a sending domain is verified) is unmarked and retried on
-the next run, until its moment passes.
+the next run, until its moment passes. The member reminder says "open
+tomorrow", so it goes only on the day before; a missed day is covered by the
+email below. It has no button, since there is nothing to do yet.
+
+**Sign-ups now open (00011).** At the moment member sign-ups open
+(`members_open_at`), every active member without a confirmed or waitlisted
+seat gets a "sign-ups now open" email with a "View lunch and sign up" button,
+marked by `members_open_now_sent_at`. Vercel Hobby runs its cron once a day,
+so this one is timed from the database: a pg_cron job runs every minute,
+checks in SQL whether a released lunch opened in the last hour without the
+email, and only then calls `/api/cron/open` through pg_net. The endpoint
+sends and marks, and marks a lunch it skips too (sign-ups closed, or the lunch
+released after members opened), so the job stops calling. The job reads the
+app's address and `CRON_SECRET` from Supabase Vault (secrets `app_url` and
+`cron_secret`), added by hand since the repo is public; without them it does
+nothing. A second job deletes pg_cron run history older than a week. Moving
+member sign-ups into the future clears the mark, so the email goes at the new
+time.
 
 ## Design system (UI, 2026 redesign)
 

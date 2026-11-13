@@ -50,6 +50,9 @@ const toRecipient = (m: Pick<MemberRow, "email" | "first_name" | "full_name">) =
  * - the lunch itself: everyone confirmed
  * A run that misses the day before still sends on the day, until the moment
  * itself has passed. A reminder Resend refuses outright is retried the same way.
+ * The member reminder is the exception: it says "tomorrow", so it goes only on
+ * the day before, and the "sign-ups now open" email (/api/cron/open) covers
+ * the day itself.
  */
 export async function GET(request: NextRequest) {
   const auth = request.headers.get("authorization");
@@ -101,6 +104,8 @@ export async function GET(request: NextRequest) {
       iso != null &&
       now < new Date(iso) &&
       today >= dateInZone(addClubDays(iso, -1, timeZone), timeZone);
+    const dayBefore = (iso: string | null): iso is string =>
+      due(iso) && today === dateInZone(addClubDays(iso, -1, timeZone), timeZone);
     const later = (a: string | null, b: string | null) =>
       a != null && b != null && new Date(a) > new Date(b);
 
@@ -154,7 +159,7 @@ export async function GET(request: NextRequest) {
       }));
     }
 
-    if (due(lunch.members_open_at) && (await claim("members_reminder_sent_at"))) {
+    if (dayBefore(lunch.members_open_at) && (await claim("members_reminder_sent_at"))) {
       const members = await activeMembers(lunch.club_id);
       await settle("members_reminder_sent_at", await sendMembersOpenReminder({
         recipients: members.map(toRecipient),

@@ -17,6 +17,7 @@ export type EmailKey =
   | "lunch_cancelled"
   | "committee_opens"
   | "members_open"
+  | "members_open_now"
   | "guests_open"
   | "lunch_reminder";
 
@@ -50,6 +51,11 @@ const P = {
   dateShort: { key: "date_short", about: "The lunch's date, short", sample: "Fri 27 Nov 2026" },
   opens: { key: "opens", about: "When sign-ups open", sample: "Mon 2 Nov 2026, 09:00" },
   opensDay: { key: "opens_day", about: "The day sign-ups open", sample: "Mon 2 Nov 2026" },
+  guestRule: {
+    key: "guest_rule",
+    about: "Whether and when guests can come",
+    sample: "Guests can be added from Wed 18 Nov 2026, 09:00, if there is space.",
+  },
   guests: {
     key: "guests",
     about: "A sentence about their guests, or nothing when they bring none",
@@ -166,23 +172,24 @@ export const EMAILS: EmailDef[] = [
   },
   {
     key: "members_open",
-    name: "Member sign-ups open",
+    name: "Member sign-ups open tomorrow",
     when: "The day before member sign-ups open",
     to: "Every active member",
-    button: "View lunch",
-    placeholders: [
-      ...lunchPlaceholders(P.firstName),
-      P.opens,
-      P.opensDay,
-      {
-        key: "guest_rule",
-        about: "Whether and when guests can come",
-        sample: "Guests can be added from Wed 18 Nov 2026, 09:00, if there is space.",
-      },
-    ],
+    placeholders: [...lunchPlaceholders(P.firstName), P.opens, P.opensDay, P.guestRule],
     subject: "{lunch}: sign-ups open {opens_day}",
-    heading: "Member sign-ups",
+    heading: "Sign-ups open tomorrow",
     body: "Hi {name},\n\nSign-ups for **{lunch}** open on **{opens}**. Seats are first come, first served.\n\nThe lunch is on **{date}** at {time}, at {venue_address}. {guest_rule}",
+  },
+  {
+    key: "members_open_now",
+    name: "Member sign-ups now open",
+    when: "The moment member sign-ups open",
+    to: "Every active member not yet signed up",
+    button: "View lunch and sign up",
+    placeholders: [...lunchPlaceholders(P.firstName), P.opens, P.opensDay, P.guestRule],
+    subject: "{lunch}: sign-ups are now open",
+    heading: "Sign-ups now open!",
+    body: "Hi {name},\n\nSign-ups for **{lunch}** are now open. Seats are first come, first served.\n\nThe lunch is on **{date}** at {time}, at {venue_address}. {guest_rule}",
   },
   {
     key: "guests_open",
@@ -290,7 +297,10 @@ export function contentFor(def: EmailDef, saved?: Partial<EmailContent> | null):
   };
 }
 
-/** The whole email as HTML: heading, body, the system's button and the club's signature. */
+/**
+ * The whole email as HTML: the club's name on top, heading, body, the
+ * system's button and the club's signature.
+ */
 export function emailHtml(opts: {
   heading: string;
   body: string;
@@ -306,11 +316,15 @@ export function emailHtml(opts: {
     ? `<hr style="border: none; border-top: 1px solid #e7e5e4; margin: 32px 0 16px;" />
     <p style="font-size: 12px; color: #a8a29e;">The secretary, ${esc(opts.clubName)}.</p>`
     : "";
+  const masthead = opts.clubName
+    ? `<p style="margin: 0 0 24px; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: #78716c;">${esc(opts.clubName)}</p>`
+    : "";
   const heading = opts.heading
     ? `<h2 style="font-weight: 600; margin-bottom: 16px;">${opts.heading}</h2>`
     : "";
   return `
   <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; color: #292524;">
+    ${masthead}
     ${heading}
     ${opts.body}
     ${button}
