@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useRef, useState } from "react";
-import Link from "next/link";
 import { LockIcon } from "lucide-react";
 import {
   signUpAction,
@@ -32,9 +31,6 @@ interface SignupCardProps {
   phaseTitle: string | null;
   phaseDetail: string | null;
   isCommittee: boolean;
-  isNextOpenLunch: boolean;
-  nextOpenHref?: string | null;
-  nextOpenTitle?: string | null;
   mySignup: {
     status: string;
     guest_count: number;
@@ -89,9 +85,6 @@ export function SignupCard({
   phaseTitle,
   phaseDetail,
   isCommittee,
-  isNextOpenLunch,
-  nextOpenHref,
-  nextOpenTitle,
   mySignup,
   myGuests,
   previousGuests,
@@ -242,28 +235,6 @@ export function SignupCard({
         title={phaseTitle ?? "Sign-ups not open yet"}
         detail={phaseDetail ?? "Sign-ups for this lunch haven't opened yet."}
       />
-    );
-  }
-
-  if (!isCommittee && !isNextOpenLunch) {
-    return (
-      <Card className="border-border bg-muted/30">
-        <CardContent className="space-y-2 py-5 text-sm text-muted-foreground">
-          <p>
-            You can only sign up for the next open lunch.
-          </p>
-          {nextOpenHref ? (
-            <p>
-              <Link
-                href={nextOpenHref}
-                className="text-foreground underline underline-offset-4 hover:text-primary"
-              >
-                {nextOpenTitle ?? "Next open lunch"}
-              </Link>
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
     );
   }
 

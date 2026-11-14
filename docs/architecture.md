@@ -129,7 +129,10 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
   there is no club default since 00006). Phase logic lives in
   `lib/signup-phases.ts` and the `sign_up_with_guests` /
   `set_my_guests` RPCs. Committee may add their own names before the
-  membership, but nobody adds guests before `guests_open_at`.
+  membership, but nobody adds guests before `guests_open_at`. Each lunch's
+  window stands alone: members can sign up for every lunch that is open at
+  the same time (00012 dropped the rule that only the earliest open lunch
+  took member sign-ups).
 - **signups** — one per member per lunch: confirmed/waitlisted/cancelled,
   `guest_count` (guests consume seats), `created_at` is the FCFS order,
   `attended` for history.

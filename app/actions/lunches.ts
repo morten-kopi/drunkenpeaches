@@ -20,7 +20,6 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   fillMissingPhaseTimestamps,
-  findNextOpenLunch,
   fromDatetimeLocalValue,
   guestEditBlockReason,
   memberSignupBlockReason,
@@ -325,19 +324,6 @@ function parseLunchForm(formData: FormData, club: Club) {
   } as const;
 }
 
-async function loadUpcomingReleased(ctx: Ctx) {
-  const today = todayInZone(ctx.club.timezone);
-  const { data } = await ctx.supabase
-    .from("lunches")
-    .select("*")
-    .eq("club_id", ctx.club.id)
-    .eq("status", "released")
-    .gte("lunch_date", today)
-    .order("lunch_date")
-    .order("start_time");
-  return (data ?? []) as Lunch[];
-}
-
 export type FormState = { error?: string; success?: boolean };
 
 export async function createLunchAction(
@@ -612,19 +598,18 @@ export async function signUpAction(
     const guests = parseGuests(formData);
     const guestCount = guests.length;
 
-    const upcoming = await loadUpcomingReleased(ctx);
-    const lunchRow =
-      upcoming.find((l) => l.id === lunchId) ??
-      ((
-        await ctx.supabase.from("lunches").select("*").eq("id", lunchId).single()
-      ).data as Lunch | null);
+    const { data: lunchData } = await ctx.supabase
+      .from("lunches")
+      .select("*")
+      .eq("club_id", ctx.club.id)
+      .eq("id", lunchId)
+      .maybeSingle();
+    const lunchRow = lunchData as Lunch | null;
     if (!lunchRow) return { error: "Lunch not found" };
-    const nextOpen = findNextOpenLunch(upcoming, ctx.club.timezone);
     const blocked = memberSignupBlockReason({
       lunch: lunchRow,
       club: ctx.club,
       isCommittee: ctx.membership.role === "committee",
-      nextOpenLunchId: nextOpen?.id ?? null,
       guestCount,
     });
     if (blocked) return { error: blocked };

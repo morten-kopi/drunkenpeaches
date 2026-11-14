@@ -114,8 +114,9 @@ draft → released → completed | cancelled
 
 Release still reveals the luncheon to every member. Sign-up itself
 is now three timed waves (committee → members → guests), configured
-on the club and overridable per lunch. Members may only add their
-name to the next luncheon that is currently in an open window.
+on the club and overridable per lunch. Members can sign up for any
+luncheon whose window is open; until 00012 only the next open one
+accepted member sign-ups.
 
 ### Venues
 

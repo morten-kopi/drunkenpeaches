@@ -13,7 +13,6 @@ import { createClient } from "@/lib/supabase/server";
 import { fmtDate, fmtTime, todayInZone } from "@/lib/format";
 import { seatsTaken, type Lunch, type Signup } from "@/lib/types";
 import {
-  findNextOpenLunch,
   lunchCardPhaseLabel,
   resolveSignupPhase,
   signupWindowCopy,
@@ -81,7 +80,6 @@ export default async function DashboardPage({
     : undefined;
   const nextPhase = next ? resolveSignupPhase(next) : null;
   const nextCopy = next && nextPhase ? signupWindowCopy(next, nextPhase, ctx.club.timezone) : null;
-  const nextOpen = findNextOpenLunch(lunches, ctx.club.timezone);
   const heroCta = (() => {
     if (!next) return "View lunch";
     if (mySignup) return "View my seat";
@@ -91,9 +89,6 @@ export default async function DashboardPage({
     }
     if (nextPhase === "committee" && !ctx.isCommittee) {
       return "Committee only for now";
-    }
-    if (!ctx.isCommittee && nextOpen && nextOpen.id !== next.id) {
-      return "View lunch";
     }
     return "Sign up";
   })();
@@ -221,9 +216,7 @@ export default async function DashboardPage({
                   waitlisted={waitlistedCount(s)}
                   phaseLabel={
                     l.status === "released"
-                      ? lunchCardPhaseLabel(l, ctx.club.timezone, {
-                          isNextOpen: nextOpen?.id === l.id,
-                        })
+                      ? lunchCardPhaseLabel(l, ctx.club.timezone)
                       : null
                   }
                 />

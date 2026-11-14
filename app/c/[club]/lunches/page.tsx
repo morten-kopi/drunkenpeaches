@@ -4,10 +4,7 @@ import { CalendarOffIcon, PlusIcon } from "lucide-react";
 import { getClubContext } from "@/lib/club-context";
 import { createClient } from "@/lib/supabase/server";
 import { seatsTaken, type Lunch, type Signup } from "@/lib/types";
-import {
-  findNextOpenLunch,
-  lunchCardPhaseLabel,
-} from "@/lib/signup-phases";
+import { lunchCardPhaseLabel } from "@/lib/signup-phases";
 import { todayInZone } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
@@ -57,7 +54,6 @@ export default async function LunchesPage({
   const past = lunches.filter(
     (l) => l.lunch_date < today || l.status === "cancelled"
   );
-  const nextOpen = findNextOpenLunch(lunches, ctx.club.timezone);
 
   function card(l: LunchRow) {
     const ls = signups.filter((s) => s.lunch_id === l.id);
@@ -78,9 +74,7 @@ export default async function LunchesPage({
         mySignupStatus={mine?.status}
         phaseLabel={
           l.status === "released"
-            ? lunchCardPhaseLabel(l, ctx.club.timezone, {
-                isNextOpen: nextOpen?.id === l.id,
-              })
+            ? lunchCardPhaseLabel(l, ctx.club.timezone)
             : null
         }
       />
