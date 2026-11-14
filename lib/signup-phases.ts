@@ -1,6 +1,6 @@
 import { addDays, format } from "date-fns";
 import { TZDate, tz } from "@date-fns/tz";
-import { dateInZone, fmtDateShort, fmtDateTime, todayInZone } from "@/lib/format";
+import { dateInZone, fmtDateShort, fmtDateTime } from "@/lib/format";
 import { guestPolicy, type Club, type Lunch } from "@/lib/types";
 
 /** Club-level default durations used to compute per-lunch phase timestamps. */
@@ -19,18 +19,6 @@ export type PhaseTimestamps = {
   guests_open_at: string;
   signup_cutoff_at: string;
 };
-
-export type LunchPhaseFields = Pick<
-  Lunch,
-  | "id"
-  | "status"
-  | "lunch_date"
-  | "start_time"
-  | "signup_opens_at"
-  | "members_open_at"
-  | "guests_open_at"
-  | "signup_cutoff_at"
->;
 
 /**
  * Released-lunch signup phase. Legacy rows with null timestamps are treated as
@@ -207,58 +195,6 @@ export function resolveSignupPhase(
   return "guests";
 }
 
-export function isUpcomingLunch(
-  lunch: Pick<Lunch, "lunch_date">,
-  timeZone: string,
-  now: Date = new Date()
-): boolean {
-  return lunch.lunch_date >= todayInZone(timeZone, now);
-}
-
-/** Opened for signup and not yet at cutoff (committee-priority counts as open). */
-export function isInOpenSignupWindow(
-  lunch: Pick<
-    Lunch,
-    | "status"
-    | "signup_opens_at"
-    | "members_open_at"
-    | "guests_open_at"
-    | "signup_cutoff_at"
-  >,
-  now: Date = new Date()
-): boolean {
-  if (lunch.status !== "released") return false;
-  const phase = resolveSignupPhase(lunch, now);
-  return phase === "committee" || phase === "members" || phase === "guests";
-}
-
-export function compareLunchStart(
-  a: Pick<Lunch, "lunch_date" | "start_time">,
-  b: Pick<Lunch, "lunch_date" | "start_time">
-): number {
-  const byDate = a.lunch_date.localeCompare(b.lunch_date);
-  if (byDate !== 0) return byDate;
-  return a.start_time.localeCompare(b.start_time);
-}
-
-/** Soonest upcoming released lunch that has opened and not yet hit cutoff. */
-export function findNextOpenLunch<T extends LunchPhaseFields>(
-  lunches: T[],
-  timeZone: string,
-  now: Date = new Date()
-): T | null {
-  return (
-    lunches
-      .filter(
-        (l) =>
-          l.status === "released" &&
-          isUpcomingLunch(l, timeZone, now) &&
-          isInOpenSignupWindow(l, now)
-      )
-      .sort(compareLunchStart)[0] ?? null
-  );
-}
-
 /** The lunch allows guests and its guest date has passed. Applies to committee too. */
 export function guestsAllowedNow(lunch: Lunch, now: Date = new Date()): boolean {
   if (!guestPolicy(lunch).allowed) return false;
@@ -305,7 +241,6 @@ export function memberSignupBlockReason(opts: {
   lunch: Lunch;
   club: Club;
   isCommittee: boolean;
-  nextOpenLunchId: string | null;
   guestCount?: number;
   now?: Date;
 }): string | null {
@@ -327,10 +262,6 @@ export function memberSignupBlockReason(opts: {
       return opts.lunch.members_open_at
         ? `Members can sign up from ${fmtDateTime(opts.lunch.members_open_at, opts.club.timezone)}`
         : "Sign-ups for this lunch haven't opened yet";
-    }
-
-    if (opts.nextOpenLunchId && opts.lunch.id !== opts.nextOpenLunchId) {
-      return "You can only sign up for the next open lunch";
     }
 
     if (phase === "committee") {
@@ -392,8 +323,7 @@ export function guestEditBlockReason(opts: {
 /** Short label for list/dashboard cards. */
 export function lunchCardPhaseLabel(
   lunch: Lunch,
-  timeZone: string,
-  opts?: { isNextOpen?: boolean }
+  timeZone: string
 ): string | null {
   const phase = resolveSignupPhase(lunch);
   const guestsAllowed = guestPolicy(lunch).allowed;
@@ -407,7 +337,6 @@ export function lunchCardPhaseLabel(
         ? `Committee only until ${fmtDateShort(dateInZone(lunch.members_open_at, timeZone))}`
         : "Committee only";
     case "members":
-      if (!opts?.isNextOpen) return "Open to members";
       return guestsAllowed && lunch.guests_open_at
         ? `Members only, guests from ${fmtDateShort(dateInZone(lunch.guests_open_at, timeZone))}`
         : "Open to members";

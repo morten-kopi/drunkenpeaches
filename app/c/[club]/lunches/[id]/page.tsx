@@ -15,7 +15,6 @@ import {
   fmtTime,
   fmtDateTime,
   initials,
-  todayInZone,
 } from "@/lib/format";
 import {
   guestPolicy,
@@ -29,7 +28,6 @@ import {
 import { guestNames, guestsBySignup } from "@/lib/guests";
 import { fetchAll } from "@/lib/fetch-all";
 import {
-  findNextOpenLunch,
   resolveSignupPhase,
   signupWindowCopy,
   toDatetimeLocalValue,
@@ -121,21 +119,6 @@ export default async function LunchDetailPage({
   const cutoffPassed = phase === "closed";
   const windowCopy = signupWindowCopy(lunch, phase, ctx.club.timezone);
 
-  const today = todayInZone(ctx.club.timezone, now);
-  const { data: upcomingData } = await supabase
-    .from("lunches")
-    .select("*")
-    .eq("club_id", ctx.club.id)
-    .eq("status", "released")
-    .gte("lunch_date", today)
-    .order("lunch_date")
-    .order("start_time");
-  const nextOpen = findNextOpenLunch(
-    (upcomingData ?? []) as Lunch[],
-    ctx.club.timezone,
-    now
-  );
-  const isNextOpenLunch = nextOpen?.id === lunch.id;
   const mySignup =
     signups.find(
       (s) => s.membership_id === ctx.membership.id && s.status !== "cancelled"
@@ -298,13 +281,6 @@ export default async function LunchDetailPage({
           phaseTitle={windowCopy?.title ?? null}
           phaseDetail={windowCopy?.detail ?? null}
           isCommittee={ctx.isCommittee}
-          isNextOpenLunch={isNextOpenLunch || ctx.isCommittee}
-          nextOpenHref={
-            nextOpen && nextOpen.id !== lunch.id
-              ? `/c/${slug}/lunches/${nextOpen.id}`
-              : null
-          }
-          nextOpenTitle={nextOpen?.title ?? null}
           mySignup={
             mySignup
               ? {
