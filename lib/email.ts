@@ -165,9 +165,9 @@ function lunchValues(club: EmailClub, lunch: EmailLunch, name: string) {
   };
 }
 
-function lunchButton(lunch: EmailLunch) {
+function lunchButton(lunch: EmailLunch, label = "View lunch") {
   return {
-    label: "View lunch",
+    label,
     url: `${APP_URL()}/c/${lunch.clubSlug}/lunches/${lunch.id}`,
   };
 }
@@ -340,33 +340,49 @@ export async function sendCommitteeOpensReminder(opts: {
   );
 }
 
-/** The day before member registration opens. Every active member. */
-export async function sendMembersOpenReminder(opts: {
+type MembersOpen = {
   recipients: Recipient[];
   club: EmailClub;
   lunch: EmailLunch;
   opens: Moment;
   /** Null when the lunch takes no guests. */
   guests: { maxPerMember: number; opens: Moment | null } | null;
-}) {
-  const content = await wording(opts.club.id, "members_open");
+};
+
+function membersOpenValues(opts: MembersOpen, name: string) {
   const guestRule = !opts.guests
     ? "No guests at this lunch."
     : opts.guests.opens
       ? `Guests can be added from ${opts.guests.opens.at}, if there is space.`
       : `Each member can bring up to ${plural(opts.guests.maxPerMember, "guest")}, if there is space.`;
+  return {
+    ...lunchValues(opts.club, opts.lunch, name),
+    opens: opts.opens.at,
+    opens_day: opts.opens.day,
+    guest_rule: guestRule,
+  };
+}
+
+/**
+ * The day before member registration opens. Every active member. No button:
+ * there is nothing to do yet.
+ */
+export async function sendMembersOpenReminder(opts: MembersOpen) {
+  const content = await wording(opts.club.id, "members_open");
   return sendEach(opts.recipients, (r) =>
-    compose(
-      content,
-      {
-        ...lunchValues(opts.club, opts.lunch, r.name),
-        opens: opts.opens.at,
-        opens_day: opts.opens.day,
-        guest_rule: guestRule,
-      },
-      opts.club.name,
-      lunchButton(opts.lunch)
-    )
+    compose(content, membersOpenValues(opts, r.name), opts.club.name)
+  );
+}
+
+/**
+ * The moment member registration opens (sent by /api/cron/open). Every
+ * active member not yet signed up.
+ */
+export async function sendMembersOpenNow(opts: MembersOpen) {
+  const content = await wording(opts.club.id, "members_open_now");
+  const button = lunchButton(opts.lunch, emailDef("members_open_now")!.button);
+  return sendEach(opts.recipients, (r) =>
+    compose(content, membersOpenValues(opts, r.name), opts.club.name, button)
   );
 }
 

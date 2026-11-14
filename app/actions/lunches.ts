@@ -181,7 +181,11 @@ async function guestNamesOf(ctx: Ctx, lunchId: string, signupId: string) {
   );
 }
 
-/** Clear the reminder for any window the edit moved, so it goes out again. */
+/**
+ * Clear the reminder for any window the edit moved, so it goes out again.
+ * The "sign-ups now open" email only goes again when member sign-ups move
+ * into the future: once it has gone, sign-ups are open.
+ */
 function remindersToResend(
   before: Lunch,
   after: Pick<
@@ -202,6 +206,11 @@ function remindersToResend(
     ...(moved(before.members_open_at, after.members_open_at) && {
       members_reminder_sent_at: null,
     }),
+    ...(moved(before.members_open_at, after.members_open_at) &&
+      after.members_open_at != null &&
+      Date.parse(after.members_open_at) > Date.now() && {
+        members_open_now_sent_at: null,
+      }),
     ...(moved(before.guests_open_at, after.guests_open_at) && {
       guests_reminder_sent_at: null,
     }),
