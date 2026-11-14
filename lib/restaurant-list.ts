@@ -21,13 +21,18 @@ export type RestaurantRow = {
   guestNames: string | null;
 };
 
-/** Confirmed members in sign-up order. */
+/**
+ * Confirmed members in alphabetical order, so the restaurant can find a name
+ * quickly. The sign-up list on the lunch page keeps sign-up order.
+ */
 export function restaurantRows(confirmed: RestaurantSignup[]): RestaurantRow[] {
-  return confirmed.map((s) => ({
-    name: s.memberships?.full_name || "Unknown",
-    guests: s.guest_count,
-    guestNames: guestNames(s.guests),
-  }));
+  return confirmed
+    .map((s) => ({
+      name: s.memberships?.full_name || "Unknown",
+      guests: s.guest_count,
+      guestNames: guestNames(s.guests),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
 }
 
 /** Seats needed: each member plus their guests. */
