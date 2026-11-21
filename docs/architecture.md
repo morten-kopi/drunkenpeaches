@@ -153,6 +153,33 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
   cancelled, and readers skip cancelled signups. A guest is at a lunch once,
   whoever brings them. The free-text `signups.guest_names` was dropped in
   00010.
+- **questionnaires** (00013) — the lunch questionnaire's questions, one row
+  per version per club, as JSON (`questions`: rating questions with options,
+  an optional `weight` and `required`, and free-text questions; `intro` is
+  shown above them). A check constraint (`questionnaire_questions_valid`)
+  refuses a malformed set. There is no screen to edit them: to change the
+  questions, insert a new row for the club, copied from the newest and
+  edited. Never update a row a lunch already uses, so past results keep the
+  questions and weights they were answered with. New lunches get the newest
+  version; a lunch is pinned to it (`lunches.questionnaire_id`) by its first
+  answer.
+- **questionnaire_responses** (00013) — one per member per lunch, `answers`
+  keyed by question key (a rating's option value, a comment's text). Written
+  only by `submit_questionnaire`: the lunch has the questionnaire on
+  (`lunches.questionnaire_enabled`, the lunch form's toggle, on by default),
+  is released or completed and has started; the member had a confirmed seat
+  and wasn't marked as no-show; required questions are answered and ratings
+  are on the scale. Answering again replaces the answers. The committee reads
+  all of them, a member their own. The members' page is
+  `/c/<club>/lunches/<id>/questionnaire` (the link the secretary shares in
+  WhatsApp), the committee's results are at `…/questionnaire/results`. The
+  overall score is each member's weighted average of the ratings, averaged
+  over the members who answered (`lib/questionnaire.ts`). Venues show the
+  same scores, pooled over every answer to their lunches: on each venue's
+  card and page, and ranked on Venues → Rankings, all time or per calendar
+  year of the lunch date, overall and per question. Each answer is scored
+  with its own version's weights; per-question rankings follow the question
+  key, with the newest version's wording.
 - **Dropped in 00010**: `sign_up_for_lunch`, `update_my_guests` and
   `committee_add_signup`, replaced by the guest-aware functions in 00008.
 - **Unused since 00006**, kept until a cleanup migration drops them:
@@ -188,8 +215,8 @@ layer sends the notification emails.
 
 Sign-up confirmed, waitlisted, promoted from waitlist, guest
 confirmed (to the guest, once per lunch, marked by
-`signup_guests.confirmation_sent_at`), lunch changed/cancelled, sign-in
-code, password reset.
+`signup_guests.confirmation_sent_at`), lunch changed/cancelled, the
+questionnaire the morning after, sign-in code, password reset.
 
 The wording of every club email (all but the sign-in code and password
 reset, which are account emails) is editable by the
@@ -236,6 +263,13 @@ app's address and `CRON_SECRET` from Supabase Vault (secrets `app_url` and
 nothing. A second job deletes pg_cron run history older than a week. Moving
 member sign-ups into the future clears the mark, so the email goes at the new
 time.
+
+**Questionnaire (00013).** The same daily cron sends the questionnaire the
+morning after a lunch with it turned on, to every active member who had a
+confirmed seat, wasn't marked as no-show and hasn't answered yet, marked by
+`questionnaire_email_sent_at`. A refused send is retried on the next run for
+up to a week after the lunch, then it stops. Lunches already past when 00013
+ran have the questionnaire off. Changing a lunch's date clears the mark.
 
 ## Design system (UI, 2026 redesign)
 

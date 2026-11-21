@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { fmtDateShort } from "@/lib/format";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { questionnaireUrl } from "@/lib/questionnaire";
 import {
   contentFor,
   emailDef,
@@ -408,6 +409,30 @@ export async function sendGuestsOpenReminder(opts: {
       },
       opts.club.name,
       lunchButton(opts.lunch)
+    )
+  );
+}
+
+/**
+ * The morning after the lunch: the questionnaire. Members who had a seat and
+ * haven't answered yet.
+ */
+export async function sendQuestionnaireRequest(opts: {
+  recipients: Recipient[];
+  club: EmailClub;
+  lunch: EmailLunch;
+}) {
+  const content = await wording(opts.club.id, "lunch_questionnaire");
+  const button = {
+    label: emailDef("lunch_questionnaire")!.button!,
+    url: questionnaireUrl(opts.lunch.clubSlug, opts.lunch.id),
+  };
+  return sendEach(opts.recipients, (r) =>
+    compose(
+      content,
+      lunchValues(opts.club, opts.lunch, r.name),
+      opts.club.name,
+      button
     )
   );
 }

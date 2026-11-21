@@ -5,6 +5,7 @@ import {
   sendGuestsOpenReminder,
   sendLunchReminder,
   sendMembersOpenReminder,
+  sendQuestionnaireRequest,
   type Moment,
   type Recipient,
   type EmailLunch,
@@ -13,6 +14,11 @@ import { dateInZone, fmtDateShort, fmtDateTime, todayInZone } from "@/lib/format
 import { addClubDays, lunchStartAt } from "@/lib/signup-phases";
 import { guestPolicy, seatsTaken, type Lunch, type Signup } from "@/lib/types";
 import { guestNames } from "@/lib/guests";
+import {
+  QUESTIONNAIRE_EMAIL_DAYS,
+  mayAnswer,
+  questionnaireEmailWindow,
+} from "@/lib/questionnaire";
 
 export const dynamic = "force-dynamic";
 
@@ -32,11 +38,22 @@ type ReminderColumn =
   | "committee_reminder_sent_at"
   | "members_reminder_sent_at"
   | "guests_reminder_sent_at"
-  | "reminder_sent_at";
+  | "reminder_sent_at"
+  | "questionnaire_email_sent_at";
 
 const toRecipient = (m: Pick<MemberRow, "email" | "first_name" | "full_name">) => ({
   email: m.email,
   name: m.first_name || m.full_name,
+});
+
+const emailLunchOf = (lunch: LunchRow, clubSlug: string): EmailLunch => ({
+  id: lunch.id,
+  clubSlug,
+  title: lunch.title,
+  lunchDate: lunch.lunch_date,
+  startTime: lunch.start_time,
+  venueName: lunch.venues?.name ?? null,
+  venueAddress: lunch.venues?.address ?? null,
 });
 
 /**
@@ -48,6 +65,8 @@ const toRecipient = (m: Pick<MemberRow, "email" | "first_name" | "full_name">) =
  * - guest registration opens: every active member, if the lunch takes
  *   guests and seats are free
  * - the lunch itself: everyone confirmed
+ * and, the morning after a lunch with the questionnaire on, the questionnaire
+ * to everyone who had a seat and hasn't answered yet.
  * A run that misses the day before still sends on the day, until the moment
  * itself has passed. A reminder Resend refuses outright is retried the same way.
  * The member reminder is the exception: it says "tomorrow", so it goes only on
@@ -89,6 +108,28 @@ export async function GET(request: NextRequest) {
 
   const sent: string[] = [];
   const failed: string[] = [];
+
+  // Mark first, then send, so overlapping runs never send twice.
+  async function claimFor(lunch: LunchRow, column: ReminderColumn) {
+    if (lunch[column]) return false;
+    const { data: rows } = await admin
+      .from("lunches")
+      .update({ [column]: now.toISOString() })
+      .eq("id", lunch.id)
+      .is(column, null)
+      .select("id");
+    return !!rows?.length;
+  }
+  // Resend took none of them (e.g. no verified domain yet): try tomorrow.
+  async function settleFor(lunch: LunchRow, column: ReminderColumn, delivered: boolean) {
+    if (delivered) {
+      sent.push(`${lunch.id}:${column}`);
+      return;
+    }
+    failed.push(`${lunch.id}:${column}`);
+    await admin.from("lunches").update({ [column]: null }).eq("id", lunch.id);
+  }
+
   for (const lunch of (data ?? []) as LunchRow[]) {
     if (!lunch.clubs) continue;
     const club = lunch.clubs;
@@ -109,37 +150,12 @@ export async function GET(request: NextRequest) {
     const later = (a: string | null, b: string | null) =>
       a != null && b != null && new Date(a) > new Date(b);
 
-    // Mark first, then send, so overlapping runs never send twice.
-    async function claim(column: ReminderColumn) {
-      if (lunch[column]) return false;
-      const { data: rows } = await admin
-        .from("lunches")
-        .update({ [column]: now.toISOString() })
-        .eq("id", lunch.id)
-        .is(column, null)
-        .select("id");
-      return !!rows?.length;
-    }
-    // Resend took none of them (e.g. no verified domain yet): try tomorrow.
-    async function settle(column: ReminderColumn, delivered: boolean) {
-      if (delivered) {
-        sent.push(`${lunch.id}:${column}`);
-        return;
-      }
-      failed.push(`${lunch.id}:${column}`);
-      await admin.from("lunches").update({ [column]: null }).eq("id", lunch.id);
-    }
+    const claim = (column: ReminderColumn) => claimFor(lunch, column);
+    const settle = (column: ReminderColumn, delivered: boolean) =>
+      settleFor(lunch, column, delivered);
 
     const emailClub = { id: lunch.club_id, name: club.name };
-    const info: EmailLunch = {
-      id: lunch.id,
-      clubSlug: club.slug,
-      title: lunch.title,
-      lunchDate: lunch.lunch_date,
-      startTime: lunch.start_time,
-      venueName: lunch.venues?.name ?? null,
-      venueAddress: lunch.venues?.address ?? null,
-    };
+    const info = emailLunchOf(lunch, club.slug);
     const policy = guestPolicy(lunch);
 
     // Skipped when the committee window is empty: the members email covers it.
@@ -236,5 +252,57 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ lunches: data?.length ?? 0, sent, failed });
+  // The questionnaire, the morning after the lunch, for up to a week if
+  // Resend refuses it. The lunch may be marked completed by then.
+  const { data: past, error: pastError } = await admin
+    .from("lunches")
+    .select("*, clubs(name, slug, timezone), venues(name, address)")
+    .in("status", ["released", "completed"])
+    .eq("questionnaire_enabled", true)
+    .is("questionnaire_email_sent_at", null)
+    .gte(
+      "lunch_date",
+      dateInZone(addClubDays(now, -(QUESTIONNAIRE_EMAIL_DAYS + 2), "UTC"), "UTC")
+    )
+    .lte("lunch_date", dateInZone(now, "UTC"));
+  if (pastError) {
+    return NextResponse.json({ error: pastError.message }, { status: 500 });
+  }
+  for (const lunch of (past ?? []) as LunchRow[]) {
+    if (!lunch.clubs) continue;
+    if (questionnaireEmailWindow(lunch, lunch.clubs.timezone, now) !== "due") continue;
+    if (!(await claimFor(lunch, "questionnaire_email_sent_at"))) continue;
+
+    const [{ data: seats }, { data: answered }] = await Promise.all([
+      admin
+        .from("signups")
+        .select("status, attended, membership_id, memberships(email, first_name, full_name, status)")
+        .eq("lunch_id", lunch.id)
+        .eq("status", "confirmed"),
+      admin.from("questionnaire_responses").select("membership_id").eq("lunch_id", lunch.id),
+    ]);
+    const done = new Set((answered ?? []).map((a) => a.membership_id as string));
+    const recipients = (seats ?? []).flatMap((s) => {
+      const m = s.memberships as unknown as (MemberRow & { status: string }) | null;
+      if (!m || m.status !== "active" || !mayAnswer(s) || done.has(s.membership_id)) {
+        return [];
+      }
+      return [toRecipient(m)];
+    });
+    await settleFor(
+      lunch,
+      "questionnaire_email_sent_at",
+      await sendQuestionnaireRequest({
+        recipients,
+        club: { id: lunch.club_id, name: lunch.clubs.name },
+        lunch: emailLunchOf(lunch, lunch.clubs.slug),
+      })
+    );
+  }
+
+  return NextResponse.json({
+    lunches: (data?.length ?? 0) + (past?.length ?? 0),
+    sent,
+    failed,
+  });
 }

@@ -1,7 +1,13 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ChevronDownIcon, MapPinIcon, UsersIcon, UtensilsIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  MapPinIcon,
+  StarIcon,
+  UsersIcon,
+  UtensilsIcon,
+} from "lucide-react";
 import { getClubContext } from "@/lib/club-context";
 import { createClient } from "@/lib/supabase/server";
 import type { Venue } from "@/lib/types";
@@ -9,7 +15,16 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorBanner } from "@/components/error-banner";
+import {
+  fmtScore,
+  loadVenueResponses,
+  rankingQuestions,
+  scaleMax,
+  scoreGroups,
+} from "@/lib/questionnaire";
+import { plural } from "@/lib/email-templates";
 import { AddVenueDialog } from "./add-venue-dialog";
+import { VenuesTabs } from "./venues-tabs";
 
 export const metadata: Metadata = { title: "Venues" };
 
@@ -26,12 +41,18 @@ export default async function VenuesPage({
   if (!ctx.isCommittee) notFound();
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("venues")
-    .select("*")
-    .eq("club_id", ctx.club.id)
-    .order("name");
+  const [{ data }, { responses, questionnaires }] = await Promise.all([
+    supabase
+      .from("venues")
+      .select("*")
+      .eq("club_id", ctx.club.id)
+      .order("name"),
+    loadVenueResponses(supabase, ctx.club.id),
+  ]);
   const venues = (data ?? []) as Venue[];
+  // All-time questionnaire scores, by venue.
+  const scores = scoreGroups(responses, (r) => r.venueId);
+  const max = scaleMax(rankingQuestions(questionnaires));
   const active = venues.filter((v) => v.status !== "archived");
   const archived = venues.filter((v) => v.status === "archived");
 
@@ -45,6 +66,8 @@ export default async function VenuesPage({
       >
         <AddVenueDialog slug={slug} />
       </PageHeader>
+
+      <VenuesTabs slug={slug} active="venues" />
 
       {active.length === 0 ? (
         <EmptyState
@@ -74,6 +97,16 @@ export default async function VenuesPage({
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <UsersIcon className="size-3.5 shrink-0" />
                     room for ~{v.default_capacity}
+                  </p>
+                ) : null}
+                {scores.get(v.id)?.overall != null ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <StarIcon className="size-3.5 shrink-0" />
+                    <span className="font-medium text-foreground tabular-nums">
+                      {fmtScore(scores.get(v.id)!.overall, 2)}
+                    </span>
+                    {max != null ? `out of ${max}` : null} ·{" "}
+                    {plural(scores.get(v.id)!.answers, "answer")}
                   </p>
                 ) : null}
               </Card>

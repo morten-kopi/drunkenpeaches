@@ -19,7 +19,8 @@ export type EmailKey =
   | "members_open"
   | "members_open_now"
   | "guests_open"
-  | "lunch_reminder";
+  | "lunch_reminder"
+  | "lunch_questionnaire";
 
 export type EmailContent = { subject: string; heading: string; body: string };
 
@@ -218,6 +219,17 @@ export const EMAILS: EmailDef[] = [
     subject: "Reminder: {lunch}, {date_short} at {time}",
     heading: "Lunch reminder",
     body: "Hi {name},\n\nA reminder that **{lunch}** is on **{date}** at {time}, at {venue_address}.\n\n{guests}\n\nIf you cannot make it, please let the committee know as soon as possible.",
+  },
+  {
+    key: "lunch_questionnaire",
+    name: "Rate the lunch",
+    when: "The morning after the lunch, if the lunch has the questionnaire turned on",
+    to: "Members who had a seat, unless marked as no-show or they have already answered",
+    button: "Rate the lunch",
+    placeholders: lunchPlaceholders(P.firstName),
+    subject: "How was lunch at {venue}?",
+    heading: "How was the lunch?",
+    body: "Hi {name},\n\nThank you for joining us at {venue} on **{date}**.\n\nPlease take a moment to rate the food, the service and the venue.",
   },
 ];
 
