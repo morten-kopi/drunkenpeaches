@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   CalendarDaysIcon,
+  ClipboardListIcon,
   ClockIcon,
   DownloadIcon,
   LockIcon,
@@ -23,6 +24,7 @@ import {
   type Lunch,
   type LunchGuest,
   type Membership,
+  type QuestionnaireResponse,
   type Signup,
 } from "@/lib/types";
 import { guestNames, guestsBySignup } from "@/lib/guests";
@@ -46,6 +48,19 @@ import {
   restaurantListText,
   restaurantRows,
 } from "@/lib/restaurant-list";
+import {
+  average,
+  fmtScore,
+  hasQuestionnaire,
+  mayAnswer,
+  questionnaireEmailWindow,
+  questionnaireFor,
+  questionnaireOpensAt,
+  questionnairePath,
+  questionnaireUrl,
+  scaleMax,
+  weightedScore,
+} from "@/lib/questionnaire";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -171,10 +186,118 @@ export default async function LunchDetailPage({
     full_name: g.full_name,
   }));
 
+  // The questionnaire: a prompt for members who had a seat, and the link and
+  // a count of answers for the committee.
+  const questionnaireOn = hasQuestionnaire(lunch);
+  const questionnaireOpen =
+    questionnaireOn &&
+    now >= questionnaireOpensAt(lunch, ctx.club.timezone);
+  const iMayAnswer = mayAnswer(mySignup);
+  let myAnswered = false;
+  if (questionnaireOpen && iMayAnswer) {
+    const { data } = await supabase
+      .from("questionnaire_responses")
+      .select("id")
+      .eq("lunch_id", lunch.id)
+      .eq("membership_id", ctx.membership.id)
+      .maybeSingle();
+    myAnswered = !!data;
+  }
+  let questionnaireStats: {
+    answered: number;
+    eligible: number;
+    score: number | null;
+    max: number | null;
+  } | null = null;
+  if (ctx.isCommittee && questionnaireOpen) {
+    const [form, { data: responses }] = await Promise.all([
+      questionnaireFor(supabase, lunch),
+      supabase
+        .from("questionnaire_responses")
+        .select("answers")
+        .eq("lunch_id", lunch.id),
+    ]);
+    const rows = (responses ?? []) as Pick<QuestionnaireResponse, "answers">[];
+    questionnaireStats = {
+      answered: rows.length,
+      eligible: confirmed.filter(mayAnswer).length,
+      score: form
+        ? average(
+            rows
+              .map((r) => weightedScore(form.questions, r.answers))
+              .filter((s): s is number => s != null)
+          )
+        : null,
+      max: form ? scaleMax(form.questions) : null,
+    };
+  }
+
   const restaurantList = restaurantListText(
     { ...lunch, venueName: lunch.venues?.name ?? null },
     restaurantRows(confirmed.map((s) => ({ ...s, guests: guestMap.get(s.id) })))
   );
+
+  const questionnaireLink = questionnairePath(slug, lunch.id);
+  const emailWindow = questionnaireEmailWindow(lunch, ctx.club.timezone, now);
+  const questionnaireCard =
+    lunch.status === "released" || lunch.status === "completed" ? (
+      <Card>
+        <CardHeader>
+          <CardTitle>Questionnaire</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!lunch.questionnaire_enabled ? (
+            <p className="text-sm text-muted-foreground">
+              Off for this lunch. Turn it on in Edit details to ask the members
+              who had a seat to rate it.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                {lunch.questionnaire_email_sent_at
+                  ? `Emailed ${fmtDateTime(lunch.questionnaire_email_sent_at, ctx.club.timezone)} to the members who had a seat and had not answered yet.`
+                  : emailWindow === "past"
+                    ? "No email went out for this lunch. Share the link to ask members to answer."
+                    : `${questionnaireOpen ? "Open now." : "Opens when the lunch starts."} Members who had a seat get it by email the morning after. Share the link in WhatsApp too.`}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded-lg border border-border bg-muted px-3 py-2 font-mono text-xs text-foreground/90">
+                  {questionnaireUrl(slug, lunch.id)}
+                </code>
+                <CopyButton
+                  text={questionnaireUrl(slug, lunch.id)}
+                  label="Copy link"
+                />
+              </div>
+              {questionnaireStats ? (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-foreground">
+                    {questionnaireStats.answered} of {questionnaireStats.eligible}{" "}
+                    answered
+                    {questionnaireStats.score != null ? (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · overall score {fmtScore(questionnaireStats.score)}
+                        {questionnaireStats.max != null
+                          ? ` out of ${questionnaireStats.max}`
+                          : ""}
+                      </span>
+                    ) : null}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    render={<Link href={`${questionnaireLink}/results`} />}
+                  >
+                    See the answers
+                  </Button>
+                </div>
+              ) : null}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    ) : null;
 
   return (
     <div className="space-y-8">
@@ -262,6 +385,36 @@ export default async function LunchDetailPage({
           </Card>
         ) : null}
       </div>
+
+      {/* Member questionnaire */}
+      {questionnaireOpen && iMayAnswer ? (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <ClipboardListIcon className="mt-0.5 size-5 shrink-0 text-primary" />
+              <div>
+                <p className="font-medium text-foreground">
+                  {myAnswered
+                    ? "Thank you for rating this lunch."
+                    : "How was the lunch?"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {myAnswered
+                    ? "You can change your answers at any time."
+                    : "Rate the food, the service and the venue."}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant={myAnswered ? "outline" : "default"}
+              className="w-fit"
+              render={<Link href={questionnaireLink} />}
+            >
+              {myAnswered ? "Change my answers" : "Rate the lunch"}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Member sign-up */}
       {lunch.status === "released" ? (
@@ -573,6 +726,9 @@ export default async function LunchDetailPage({
             ) : null}
           </div>
 
+          {/* Once the lunch has started the questionnaire matters most. */}
+          {questionnaireOpen ? questionnaireCard : null}
+
           {/* Capacity & cutoff */}
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
@@ -697,6 +853,8 @@ export default async function LunchDetailPage({
               )}
             </CardContent>
           </Card>
+
+          {questionnaireOpen ? null : questionnaireCard}
         </section>
       ) : null}
     </div>

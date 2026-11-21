@@ -87,7 +87,54 @@ export interface Lunch {
   /** When the "sign-ups now open" email went out, at members_open_at. */
   members_open_now_sent_at: string | null;
   guests_reminder_sent_at: string | null;
+  /** Whether members who were at the lunch are asked to rate it. */
+  questionnaire_enabled: boolean;
+  /** The questionnaire version its answers use; set by the first answer. */
+  questionnaire_id: string | null;
+  /** When the questionnaire email went out, the morning after. */
+  questionnaire_email_sent_at: string | null;
   created_at: string;
+}
+
+export interface QuestionnaireOption {
+  value: number;
+  label: string;
+  hint?: string;
+}
+
+export type QuestionnaireQuestion =
+  | {
+      key: string;
+      type: "rating";
+      label: string;
+      /** How much the rating counts in the overall score. */
+      weight?: number;
+      required?: boolean;
+      options: QuestionnaireOption[];
+    }
+  | { key: string; type: "text"; label: string; required?: boolean };
+
+/** One version of the club's lunch questionnaire. Never edited once used. */
+export interface Questionnaire {
+  id: string;
+  club_id: string;
+  intro: string | null;
+  questions: QuestionnaireQuestion[];
+  created_at: string;
+}
+
+/** A rating's option value or a comment's text, by question key. */
+export type QuestionnaireAnswers = Record<string, number | string>;
+
+export interface QuestionnaireResponse {
+  id: string;
+  club_id: string;
+  lunch_id: string;
+  membership_id: string;
+  questionnaire_id: string;
+  answers: QuestionnaireAnswers;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Signup {

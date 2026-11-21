@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -107,6 +108,10 @@ export function LunchForm({
   // No default: each lunch decides. A lunch saved before that rule shows blank.
   const [guestsMode, setGuestsMode] = useState<string | null>(
     lunch?.guests_allowed == null ? null : lunch.guests_allowed ? "yes" : "no"
+  );
+
+  const [questionnaire, setQuestionnaire] = useState(
+    lunch?.questionnaire_enabled ?? true
   );
 
   const [venueOptions, setVenueOptions] = useState(venues);
@@ -409,6 +414,27 @@ export function LunchForm({
               />
             </div>
           ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <input
+            type="hidden"
+            name="questionnaire"
+            value={questionnaire ? "yes" : "no"}
+          />
+          <div className="flex items-center gap-3">
+            <Switch
+              id="questionnaire"
+              checked={questionnaire}
+              onCheckedChange={(checked) => setQuestionnaire(checked)}
+            />
+            <Label htmlFor="questionnaire">Questionnaire after the lunch</Label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Members who had a seat get an email the morning after, asking them
+            to rate the lunch. The lunch page also has a link to share in
+            WhatsApp.
+          </p>
         </div>
 
         <div className="space-y-2">

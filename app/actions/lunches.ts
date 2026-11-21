@@ -217,6 +217,9 @@ function remindersToResend(
       before.start_time.slice(0, 5) !== after.start_time.slice(0, 5)) && {
       reminder_sent_at: null,
     }),
+    ...(before.lunch_date !== after.lunch_date && {
+      questionnaire_email_sent_at: null,
+    }),
   };
 }
 
@@ -246,6 +249,7 @@ const lunchSchema = z.object({
     .max(10, "At most 10 guests per member")
     .optional(),
   notes: z.string().max(2000).optional(),
+  questionnaire: z.enum(["yes", "no"]).default("yes"),
 });
 
 function parseOptionalIso(
@@ -274,6 +278,7 @@ function parseLunchForm(formData: FormData, club: Club) {
     guestsMode: formData.get("guestsMode") || undefined,
     maxGuests: formData.get("maxGuests") || undefined,
     notes: String(formData.get("notes") ?? ""),
+    questionnaire: formData.get("questionnaire") || undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message } as const;
   const d = parsed.data;
@@ -320,6 +325,7 @@ function parseLunchForm(formData: FormData, club: Club) {
       guests_allowed: guestsAllowed,
       max_guests_per_member: guestsAllowed ? d.maxGuests : 0,
       notes: d.notes || null,
+      questionnaire_enabled: d.questionnaire === "yes",
     },
   } as const;
 }
