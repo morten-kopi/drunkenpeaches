@@ -174,7 +174,12 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
   `/c/<club>/lunches/<id>/questionnaire` (the link the secretary shares in
   WhatsApp), the committee's results are at `…/questionnaire/results`. The
   overall score is each member's weighted average of the ratings, averaged
-  over the members who answered (`lib/questionnaire.ts`).
+  over the members who answered (`lib/questionnaire.ts`). Venues show the
+  same scores, pooled over every answer to their lunches: on each venue's
+  card and page, and ranked on Venues → Rankings, all time or per calendar
+  year of the lunch date, overall and per question. Each answer is scored
+  with its own version's weights; per-question rankings follow the question
+  key, with the newest version's wording.
 - **Dropped in 00010**: `sign_up_for_lunch`, `update_my_guests` and
   `committee_add_signup`, replaced by the guest-aware functions in 00008.
 - **Unused since 00006**, kept until a cleanup migration drops them:

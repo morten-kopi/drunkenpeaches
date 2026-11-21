@@ -3,6 +3,7 @@
 // version is a new row, and a lunch keeps the version its first answer used.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchAll } from "@/lib/fetch-all";
 import { dateInZone, todayInZone } from "@/lib/format";
 import { addClubDays, lunchStartAt } from "@/lib/signup-phases";
 import type {
@@ -138,8 +139,8 @@ export function average(values: number[]) {
     : null;
 }
 
-export function fmtScore(n: number | null) {
-  return n == null ? "–" : n.toFixed(1);
+export function fmtScore(n: number | null, digits = 1) {
+  return n == null ? "–" : n.toFixed(digits);
 }
 
 /** Per rating question: how many answered, the average and each option's count. */
@@ -169,4 +170,145 @@ export function summarize(
 export function optionLabel(q: RatingQuestion, value: number | string | undefined) {
   if (value == null) return null;
   return q.options.find((o) => o.value === value)?.label ?? String(value);
+}
+
+// ---------- venue scores and rankings -----------------------------------------
+
+/** One member's answers to a lunch, with what scoring and grouping need. */
+export type ScoredResponse = {
+  lunchId: string;
+  venueId: string;
+  /** The lunch's date, club wall-clock (YYYY-MM-DD). */
+  lunchDate: string;
+  questionnaireId: string;
+  /** The questions of the version this answer used. */
+  questions: QuestionnaireQuestion[];
+  answers: QuestionnaireAnswers;
+};
+
+/**
+ * Every answer to a lunch held at a venue, for the committee. Each answer
+ * is scored with its own version's questions and weights.
+ */
+export async function loadVenueResponses(
+  supabase: SupabaseClient,
+  clubId: string
+): Promise<{ responses: ScoredResponse[]; questionnaires: Questionnaire[] }> {
+  type Row = {
+    lunch_id: string;
+    questionnaire_id: string;
+    answers: QuestionnaireAnswers;
+    lunches: { venue_id: string | null; lunch_date: string } | null;
+  };
+  const [rows, { data: forms }] = await Promise.all([
+    fetchAll<Row>((from, to) =>
+      supabase
+        .from("questionnaire_responses")
+        .select("lunch_id, questionnaire_id, answers, lunches(venue_id, lunch_date)")
+        .eq("club_id", clubId)
+        .order("id")
+        .range(from, to)
+    ),
+    supabase
+      .from("questionnaires")
+      .select("*")
+      .eq("club_id", clubId)
+      .order("created_at", { ascending: false }),
+  ]);
+  const questionnaires = (forms ?? []) as Questionnaire[];
+  const byId = new Map(questionnaires.map((q) => [q.id, q]));
+  const responses = rows.flatMap((r) => {
+    const form = byId.get(r.questionnaire_id);
+    if (!form || !r.lunches?.venue_id) return [];
+    return [
+      {
+        lunchId: r.lunch_id,
+        venueId: r.lunches.venue_id,
+        lunchDate: r.lunches.lunch_date,
+        questionnaireId: form.id,
+        questions: form.questions,
+        answers: r.answers,
+      },
+    ];
+  });
+  return { responses, questionnaires };
+}
+
+/**
+ * The rating questions to show across versions, by key: the newest
+ * version's wording and order first, then keys only older versions had.
+ */
+export function rankingQuestions(questionnaires: Questionnaire[]) {
+  const newestFirst = [...questionnaires].sort((a, b) =>
+    b.created_at.localeCompare(a.created_at)
+  );
+  const seen = new Map<string, RatingQuestion>();
+  for (const form of newestFirst) {
+    for (const q of ratingQuestions(form.questions)) {
+      if (!seen.has(q.key)) seen.set(q.key, q);
+    }
+  }
+  return [...seen.values()];
+}
+
+export type Score = {
+  /** How many members answered. */
+  answers: number;
+  lunchIds: Set<string>;
+  /** Average of each answer's weighted score. */
+  overall: number | null;
+  /** Average rating per question key, over the answers that rated it. */
+  byQuestion: Map<string, number>;
+};
+
+/** Pools every answer in a group: venue, lunch, or anything else. */
+export function scoreGroups(
+  responses: ScoredResponse[],
+  keyOf: (r: ScoredResponse) => string
+) {
+  const groups = new Map<string, ScoredResponse[]>();
+  for (const r of responses) {
+    const key = keyOf(r);
+    groups.set(key, [...(groups.get(key) ?? []), r]);
+  }
+  const scores = new Map<string, Score>();
+  for (const [key, group] of groups) {
+    const ratings = new Map<string, number[]>();
+    for (const r of group) {
+      for (const q of ratingQuestions(r.questions)) {
+        const v = ratingOf(r.answers, q.key);
+        if (v != null) ratings.set(q.key, [...(ratings.get(q.key) ?? []), v]);
+      }
+    }
+    scores.set(key, {
+      answers: group.length,
+      lunchIds: new Set(group.map((r) => r.lunchId)),
+      overall: average(
+        group
+          .map((r) => weightedScore(r.questions, r.answers))
+          .filter((s): s is number => s != null)
+      ),
+      byQuestion: new Map(
+        [...ratings].map(([k, values]) => [k, average(values)!])
+      ),
+    });
+  }
+  return scores;
+}
+
+/**
+ * Highest first, with shared places for equal scores as shown (two
+ * decimals): 1, 2, 2, 4. Items without a score are left out.
+ */
+export function rank<T>(items: T[], value: (item: T) => number | null | undefined) {
+  const scored = items
+    .map((item) => ({ item, value: value(item) }))
+    .filter((x): x is { item: T; value: number } => x.value != null)
+    .map((x) => ({ ...x, shown: Math.round(x.value * 100) }))
+    .sort((a, b) => b.shown - a.shown);
+  return scored.map((x) => ({
+    item: x.item,
+    value: x.value,
+    place: scored.findIndex((y) => y.shown === x.shown) + 1,
+  }));
 }
