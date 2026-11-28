@@ -5,11 +5,12 @@ import { TrophyIcon } from "lucide-react";
 import { getClubContext } from "@/lib/club-context";
 import { createClient } from "@/lib/supabase/server";
 import {
+  currentScale,
   fmtScore,
   loadVenueResponses,
+  onOtherScale,
   rank,
   rankingQuestions,
-  scaleMax,
   scoreGroups,
   type Score,
 } from "@/lib/questionnaire";
@@ -108,7 +109,9 @@ export default async function VenueRankingsPage({
     ? responses.filter((r) => r.lunchDate.startsWith(year))
     : responses;
 
-  const scores = scoreGroups(inPeriod, (r) => r.venueId);
+  // Every period on the newest scale, so a year can be compared with another.
+  const scale = currentScale(questionnaires);
+  const scores = scoreGroups(inPeriod, (r) => r.venueId, scale);
   const rows: Ranked[] = [...scores].flatMap(([venueId, score]) => {
     const venue = venues.get(venueId);
     return venue ? [{ venue, score }] : [];
@@ -117,7 +120,8 @@ export default async function VenueRankingsPage({
   const questions = rankingQuestions(
     questionnaires.filter((q) => usedVersions.has(q.id))
   );
-  const max = scaleMax(questions);
+  const max = scale?.max ?? null;
+  const rescaled = onOtherScale(inPeriod, scale);
 
   const periods = [
     { label: "All time", href: `/c/${slug}/venues/rankings`, active: year == null },
@@ -171,6 +175,9 @@ export default async function VenueRankingsPage({
                 Each answer&apos;s weighted score, averaged over every answer
                 for the venue{year ? ` in ${year}` : ""}
                 {max != null ? `, out of ${max}` : ""}.
+                {rescaled && scale
+                  ? ` Answers on an earlier scale are converted to ${scale.min} to ${scale.max}.`
+                  : ""}
               </p>
             </CardHeader>
             <CardContent>

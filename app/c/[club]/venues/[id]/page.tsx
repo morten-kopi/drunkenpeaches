@@ -13,13 +13,17 @@ import { StatusBadge } from "@/components/status-badge";
 import { ErrorBanner } from "@/components/error-banner";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { Card } from "@/components/ui/card";
+import { ChoicePie } from "@/components/choice-pie";
 import {
+  currentScale,
   fmtScore,
   loadVenueResponses,
+  onOtherScale,
+  pooledChoiceQuestions,
   questionnairePath,
   rankingQuestions,
-  scaleMax,
   scoreGroups,
+  tallyChoice,
 } from "@/lib/questionnaire";
 import { plural } from "@/lib/email-templates";
 import { VenueForm } from "../venue-form";
@@ -63,15 +67,24 @@ export default async function VenueDetailPage({
     status: string;
   }[];
 
-  // All-time questionnaire scores for this venue and each of its lunches.
+  // All-time questionnaire scores for this venue and each of its lunches,
+  // on the newest scale.
   const responses = venueResponses.responses.filter((r) => r.venueId === id);
-  const venueScore = scoreGroups(responses, () => "venue").get("venue") ?? null;
-  const lunchScores = scoreGroups(responses, (r) => r.lunchId);
+  const scale = currentScale(venueResponses.questionnaires);
+  const venueScore =
+    scoreGroups(responses, () => "venue", scale).get("venue") ?? null;
+  const lunchScores = scoreGroups(responses, (r) => r.lunchId, scale);
   const usedVersions = new Set(responses.map((r) => r.questionnaireId));
-  const questions = rankingQuestions(
-    venueResponses.questionnaires.filter((q) => usedVersions.has(q.id))
+  const usedForms = venueResponses.questionnaires.filter((q) =>
+    usedVersions.has(q.id)
   );
-  const max = scaleMax(questions);
+  const questions = rankingQuestions(usedForms);
+  const max = scale?.max ?? null;
+  const rescaled = onOtherScale(responses, scale);
+  // "Will you come back?", over every answer that had it.
+  const tallies = pooledChoiceQuestions(usedForms)
+    .map((q) => tallyChoice(q, responses.map((r) => r.answers)))
+    .filter((t) => t.answered > 0);
 
   return (
     <div className="space-y-8">
@@ -130,6 +143,9 @@ export default async function VenueDetailPage({
                 ? ` over ${venueScore.lunchIds.size} lunches`
                 : ""}
               .
+              {rescaled && scale
+                ? ` Answers on an earlier scale are converted to ${scale.min} to ${scale.max}.`
+                : ""}
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -156,6 +172,17 @@ export default async function VenueDetailPage({
               </Card>
             ))}
           </div>
+          {tallies.map((t) => (
+            <Card key={t.question.key} className="gap-3 p-4">
+              <p className="text-sm text-muted-foreground">
+                {t.question.label}{" "}
+                <span className="text-xs">
+                  ({plural(t.answered, "answer")}, not part of the score)
+                </span>
+              </p>
+              <ChoicePie tally={t} />
+            </Card>
+          ))}
         </section>
       ) : null}
 

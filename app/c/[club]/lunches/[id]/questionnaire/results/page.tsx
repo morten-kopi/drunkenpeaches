@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import {
   average,
+  choiceOption,
+  choiceQuestions,
   fmtScore,
   hasQuestionnaire,
   mayAnswer,
@@ -16,6 +18,7 @@ import {
   ratingQuestions,
   scaleMax,
   summarize,
+  tallyChoice,
   weightedScore,
 } from "@/lib/questionnaire";
 import type {
@@ -28,6 +31,7 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChoicePie, choiceColor } from "@/components/choice-pie";
 
 export const metadata: Metadata = { title: "Questionnaire answers" };
 
@@ -119,6 +123,7 @@ export default async function QuestionnaireResultsPage({
     .sort((a, b) => a.localeCompare(b));
 
   const ratings = ratingQuestions(form.questions);
+  const choices = choiceQuestions(form.questions);
   const texts = form.questions.filter((q) => q.type === "text");
   const max = scaleMax(form.questions);
   const scores = responses
@@ -127,6 +132,9 @@ export default async function QuestionnaireResultsPage({
   const overall = average(scores);
   const weighted = ratings.some((q) => q.weight != null);
   const summary = summarize(form.questions, responses);
+  const tallies = choices.map((q) =>
+    tallyChoice(q, responses.map((r) => r.answers))
+  );
 
   return (
     <div className="space-y-8">
@@ -160,6 +168,20 @@ export default async function QuestionnaireResultsPage({
           </p>
         </Card>
       </section>
+
+      {tallies.map((t) => (
+        <Card key={t.question.key}>
+          <CardHeader>
+            <CardTitle>{t.question.label}</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Asked beside the rating; not part of the score.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ChoicePie tally={t} />
+          </CardContent>
+        </Card>
+      ))}
 
       {summary.length > 0 ? (
         <section className="grid gap-4 md:grid-cols-2">
@@ -237,7 +259,7 @@ export default async function QuestionnaireResultsPage({
                         {fmtDateTime(r.updated_at, ctx.club.timezone)}
                       </p>
                     </div>
-                    {ratings.length > 0 ? (
+                    {ratings.length + choices.length > 0 ? (
                       <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
                         {ratings.map((q) => (
                           <div key={q.key} className="flex justify-between gap-3">
@@ -249,6 +271,29 @@ export default async function QuestionnaireResultsPage({
                             </dd>
                           </div>
                         ))}
+                        {choices.map((q) => {
+                          const picked = choiceOption(q, r.answers[q.key]);
+                          return (
+                            <div key={q.key} className="flex justify-between gap-3">
+                              <dt className="text-muted-foreground">{q.label}</dt>
+                              <dd className="flex shrink-0 items-center gap-1.5 text-foreground">
+                                {picked ? (
+                                  <span
+                                    className="size-2.5 rounded-full"
+                                    style={{
+                                      background: choiceColor(
+                                        picked.color,
+                                        q.options.indexOf(picked)
+                                      ),
+                                    }}
+                                    aria-hidden
+                                  />
+                                ) : null}
+                                {picked?.label ?? r.answers[q.key] ?? "–"}
+                              </dd>
+                            </div>
+                          );
+                        })}
                       </dl>
                     ) : null}
                     {texts.map((q) =>

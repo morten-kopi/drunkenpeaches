@@ -102,6 +102,16 @@ export interface QuestionnaireOption {
   hint?: string;
 }
 
+/** The colours a choice's option can have. */
+export type ChoiceColor = "red" | "yellow" | "green";
+
+export interface QuestionnaireChoiceOption {
+  /** Stored as the answer. */
+  value: string;
+  label: string;
+  color?: ChoiceColor;
+}
+
 export type QuestionnaireQuestion =
   | {
       key: string;
@@ -111,6 +121,14 @@ export type QuestionnaireQuestion =
       weight?: number;
       required?: boolean;
       options: QuestionnaireOption[];
+    }
+  | {
+      /** Counted, never scored, e.g. "Will you come back?". */
+      key: string;
+      type: "choice";
+      label: string;
+      required?: boolean;
+      options: QuestionnaireChoiceOption[];
     }
   | { key: string; type: "text"; label: string; required?: boolean };
 
