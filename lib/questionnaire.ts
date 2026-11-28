@@ -15,6 +15,7 @@ import type {
 } from "@/lib/types";
 
 export type RatingQuestion = Extract<QuestionnaireQuestion, { type: "rating" }>;
+export type ChoiceQuestion = Extract<QuestionnaireQuestion, { type: "choice" }>;
 
 export function questionnairePath(slug: string, lunchId: string) {
   return `/c/${slug}/lunches/${lunchId}/questionnaire`;
@@ -97,19 +98,54 @@ export function ratingQuestions(questions: QuestionnaireQuestion[]) {
   return questions.filter((q): q is RatingQuestion => q.type === "rating");
 }
 
+/** Questions like "Will you come back?": counted, never part of the score. */
+export function choiceQuestions(questions: QuestionnaireQuestion[]) {
+  return questions.filter((q): q is ChoiceQuestion => q.type === "choice");
+}
+
 function ratingOf(answers: QuestionnaireAnswers, key: string) {
   const v = answers[key];
   return typeof v === "number" ? v : null;
 }
 
+/** The lowest and highest rating on offer, e.g. 1 to 5. */
+export type Scale = { min: number; max: number };
+
+export function ratingScale(questions: QuestionnaireQuestion[]): Scale | null {
+  const values = ratingQuestions(questions).flatMap((q) =>
+    q.options.map((o) => o.value)
+  );
+  return values.length
+    ? { min: Math.min(...values), max: Math.max(...values) }
+    : null;
+}
+
+/** The top of the scale, for "3.4 out of 5". */
+export function scaleMax(questions: QuestionnaireQuestion[]) {
+  return ratingScale(questions)?.max ?? null;
+}
+
+/**
+ * A rating moved from its question's scale onto another, end to end: lowest
+ * to lowest, highest to highest, evenly between. On 1 to 5, an answer on
+ * 1 to 4 counts 4 as 5 and 3 as 3.67. Without a scale, the rating as given.
+ */
+function onScale(value: number, q: RatingQuestion, to: Scale | null) {
+  const from = ratingScale([q]);
+  if (!to || !from || from.max === from.min) return value;
+  return to.min + ((value - from.min) * (to.max - to.min)) / (from.max - from.min);
+}
+
 /**
  * One member's overall score: the weighted average of their ratings, on the
- * questions' own scale. Questions without a weight count equally when none
- * has one, and not at all otherwise.
+ * questions' own scale, or on `to` when scores from versions with different
+ * scales are pooled. Questions without a weight count equally when none has
+ * one, and not at all otherwise.
  */
 export function weightedScore(
   questions: QuestionnaireQuestion[],
-  answers: QuestionnaireAnswers
+  answers: QuestionnaireAnswers,
+  to: Scale | null = null
 ) {
   const rated = ratingQuestions(questions);
   const weighted = rated.some((q) => q.weight != null);
@@ -119,18 +155,10 @@ export function weightedScore(
     const v = ratingOf(answers, q.key);
     const w = weighted ? (q.weight ?? 0) : 1;
     if (v == null || w <= 0) continue;
-    sum += v * w;
+    sum += onScale(v, q, to) * w;
     total += w;
   }
   return total > 0 ? sum / total : null;
-}
-
-/** The top of the scale, for "3.4 out of 4". */
-export function scaleMax(questions: QuestionnaireQuestion[]) {
-  const values = ratingQuestions(questions).flatMap((q) =>
-    q.options.map((o) => o.value)
-  );
-  return values.length ? Math.max(...values) : null;
 }
 
 export function average(values: number[]) {
@@ -166,11 +194,31 @@ export function summarize(
   });
 }
 
-/** "Excellent" for a stored 4, or the value itself if the scale changed. */
+/** "Outstanding" for a stored 5, or the value itself if the scale changed. */
 export function optionLabel(q: RatingQuestion, value: number | string | undefined) {
   if (value == null) return null;
   return q.options.find((o) => o.value === value)?.label ?? String(value);
 }
+
+/** The option a choice answer picked, if it is still one of them. */
+export function choiceOption(q: ChoiceQuestion, value: number | string | undefined) {
+  return q.options.find((o) => o.value === value) ?? null;
+}
+
+/** How many answers picked each of a choice's options, in its order. */
+export function tallyChoice(q: ChoiceQuestion, answers: QuestionnaireAnswers[]) {
+  const options = q.options.map((option) => ({
+    option,
+    count: answers.filter((a) => a[q.key] === option.value).length,
+  }));
+  return {
+    question: q,
+    answered: options.reduce((n, o) => n + o.count, 0),
+    options,
+  };
+}
+
+export type ChoiceTally = ReturnType<typeof tallyChoice>;
 
 // ---------- venue scores and rankings -----------------------------------------
 
@@ -234,37 +282,82 @@ export async function loadVenueResponses(
   return { responses, questionnaires };
 }
 
-/**
- * The rating questions to show across versions, by key: the newest
- * version's wording and order first, then keys only older versions had.
- */
-export function rankingQuestions(questionnaires: Questionnaire[]) {
-  const newestFirst = [...questionnaires].sort((a, b) =>
+function newestFirst(questionnaires: Questionnaire[]) {
+  return [...questionnaires].sort((a, b) =>
     b.created_at.localeCompare(a.created_at)
   );
-  const seen = new Map<string, RatingQuestion>();
-  for (const form of newestFirst) {
-    for (const q of ratingQuestions(form.questions)) {
+}
+
+/**
+ * Questions to show across versions, by key: the newest version's wording
+ * and order first, then keys only older versions had.
+ */
+function questionsByKey<Q extends QuestionnaireQuestion>(
+  questionnaires: Questionnaire[],
+  pick: (questions: QuestionnaireQuestion[]) => Q[]
+) {
+  const seen = new Map<string, Q>();
+  for (const form of newestFirst(questionnaires)) {
+    for (const q of pick(form.questions)) {
       if (!seen.has(q.key)) seen.set(q.key, q);
     }
   }
   return [...seen.values()];
 }
 
+/** The rating questions to show across versions. */
+export function rankingQuestions(questionnaires: Questionnaire[]) {
+  return questionsByKey(questionnaires, ratingQuestions);
+}
+
+/** The choice questions to show across versions. */
+export function pooledChoiceQuestions(questionnaires: Questionnaire[]) {
+  return questionsByKey(questionnaires, choiceQuestions);
+}
+
+/**
+ * The newest version's scale. Scores pooled over several lunches are shown
+ * on it, so answers to an older version with another scale (the first one
+ * rated 1 to 4) count alongside the rest.
+ */
+export function currentScale(questionnaires: Questionnaire[]): Scale | null {
+  for (const form of newestFirst(questionnaires)) {
+    const scale = ratingScale(form.questions);
+    if (scale) return scale;
+  }
+  return null;
+}
+
+/** Whether any of these answers were rated on another scale than `to`. */
+export function onOtherScale(responses: ScoredResponse[], to: Scale | null) {
+  return (
+    to != null &&
+    responses.some((r) => {
+      const own = ratingScale(r.questions);
+      return own != null && (own.min !== to.min || own.max !== to.max);
+    })
+  );
+}
+
 export type Score = {
   /** How many members answered. */
   answers: number;
   lunchIds: Set<string>;
-  /** Average of each answer's weighted score. */
+  /** Average of each answer's weighted score, on the pooled scale. */
   overall: number | null;
   /** Average rating per question key, over the answers that rated it. */
   byQuestion: Map<string, number>;
 };
 
-/** Pools every answer in a group: venue, lunch, or anything else. */
+/**
+ * Pools every answer in a group: venue, lunch, or anything else. Ratings
+ * are moved onto `to` (normally currentScale) first, so answers on
+ * different scales can be averaged.
+ */
 export function scoreGroups(
   responses: ScoredResponse[],
-  keyOf: (r: ScoredResponse) => string
+  keyOf: (r: ScoredResponse) => string,
+  to: Scale | null
 ) {
   const groups = new Map<string, ScoredResponse[]>();
   for (const r of responses) {
@@ -277,7 +370,9 @@ export function scoreGroups(
     for (const r of group) {
       for (const q of ratingQuestions(r.questions)) {
         const v = ratingOf(r.answers, q.key);
-        if (v != null) ratings.set(q.key, [...(ratings.get(q.key) ?? []), v]);
+        if (v != null) {
+          ratings.set(q.key, [...(ratings.get(q.key) ?? []), onScale(v, q, to)]);
+        }
       }
     }
     scores.set(key, {
@@ -285,7 +380,7 @@ export function scoreGroups(
       lunchIds: new Set(group.map((r) => r.lunchId)),
       overall: average(
         group
-          .map((r) => weightedScore(r.questions, r.answers))
+          .map((r) => weightedScore(r.questions, r.answers, to))
           .filter((s): s is number => s != null)
       ),
       byQuestion: new Map(

@@ -55,6 +55,13 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
+  /* A choice option's colour, e.g. "Will you come back?" (No, Maybe,
+     Absolutely). Checked for colour-blind separation as a set; always shown
+     with the option's label. */
+  --color-choice-red: var(--choice-red);
+  --color-choice-yellow: var(--choice-yellow);
+  --color-choice-green: var(--choice-green);
+
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -131,6 +138,10 @@
   --chart-4: oklch(0.68 0.08 78);
   --chart-5: oklch(0.46 0.1 152);
 
+  --choice-red: oklch(0.53 0.17 27);
+  --choice-yellow: oklch(0.78 0.15 85);
+  --choice-green: oklch(0.62 0.14 148);
+
   --radius: 0.375rem;
   --shadow-color: 0.28 0.03 40;
 
@@ -192,6 +203,10 @@
   --chart-3: oklch(0.72 0.1 70);
   --chart-4: oklch(0.76 0.09 80);
   --chart-5: oklch(0.7 0.12 152);
+
+  --choice-red: oklch(0.55 0.17 27);
+  --choice-yellow: oklch(0.66 0.13 88);
+  --choice-green: oklch(0.5 0.13 155);
 
   --shadow-color: 0 0 0;
 

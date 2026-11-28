@@ -153,10 +153,15 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
   cancelled, and readers skip cancelled signups. A guest is at a lunch once,
   whoever brings them. The free-text `signups.guest_names` was dropped in
   00010.
-- **questionnaires** (00013) — the lunch questionnaire's questions, one row
-  per version per club, as JSON (`questions`: rating questions with options,
-  an optional `weight` and `required`, and free-text questions; `intro` is
-  shown above them). A check constraint (`questionnaire_questions_valid`)
+- **questionnaires** (00013, 00014) — the lunch questionnaire's questions,
+  one row per version per club, as JSON (`questions`: rating questions with
+  options, an optional `weight` and `required`; choice questions, whose
+  options have a text `value`, a label and an optional colour (red, yellow
+  or green), counted and never scored; and free-text questions; `intro` is
+  shown above them). The first version rated 1 to 4; 00014's rates 1 to 5
+  (Poor, Fair, Good, Very Good, Outstanding) and adds the choice "Will you
+  come back?" (No, Maybe, Absolutely in red, yellow, green), an add-on to
+  the rating that the results show as a pie chart. A check constraint (`questionnaire_questions_valid`)
   refuses a malformed set. There is no screen to edit them: to change the
   questions, insert a new row for the club, copied from the newest and
   edited. Never update a row a lunch already uses, so past results keep the
@@ -164,7 +169,8 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
   version; a lunch is pinned to it (`lunches.questionnaire_id`) by its first
   answer.
 - **questionnaire_responses** (00013) — one per member per lunch, `answers`
-  keyed by question key (a rating's option value, a comment's text). Written
+  keyed by question key (a rating's option value, a choice's option value,
+  a comment's text). Written
   only by `submit_questionnaire`: the lunch has the questionnaire on
   (`lunches.questionnaire_enabled`, the lunch form's toggle, on by default),
   is released or completed and has started; the member had a confirmed seat
@@ -179,7 +185,12 @@ Tenant = **club/chapter**. Isolation is enforced at the **database** via Postgre
   card and page, and ranked on Venues → Rankings, all time or per calendar
   year of the lunch date, overall and per question. Each answer is scored
   with its own version's weights; per-question rankings follow the question
-  key, with the newest version's wording.
+  key, with the newest version's wording. Pooled scores are on the newest
+  version's scale: a rating on another scale is stretched onto it end to
+  end (on 1 to 5, a 4 of 4 counts as 5 and a 3 of 4 as 3.67), and the page
+  says so when that happened. A lunch's own results stay on its version's
+  scale. A venue's page also pools its "Will you come back?" answers into
+  one pie.
 - **Dropped in 00010**: `sign_up_for_lunch`, `update_my_guests` and
   `committee_add_signup`, replaced by the guest-aware functions in 00008.
 - **Unused since 00006**, kept until a cleanup migration drops them:

@@ -16,10 +16,9 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorBanner } from "@/components/error-banner";
 import {
+  currentScale,
   fmtScore,
   loadVenueResponses,
-  rankingQuestions,
-  scaleMax,
   scoreGroups,
 } from "@/lib/questionnaire";
 import { plural } from "@/lib/email-templates";
@@ -50,9 +49,10 @@ export default async function VenuesPage({
     loadVenueResponses(supabase, ctx.club.id),
   ]);
   const venues = (data ?? []) as Venue[];
-  // All-time questionnaire scores, by venue.
-  const scores = scoreGroups(responses, (r) => r.venueId);
-  const max = scaleMax(rankingQuestions(questionnaires));
+  // All-time questionnaire scores, by venue, on the newest scale.
+  const scale = currentScale(questionnaires);
+  const scores = scoreGroups(responses, (r) => r.venueId, scale);
+  const max = scale?.max ?? null;
   const active = venues.filter((v) => v.status !== "archived");
   const archived = venues.filter((v) => v.status === "archived");
 

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { FormError } from "@/components/form-error";
+import { choiceColor } from "@/components/choice-pie";
 import { cn } from "@/lib/utils";
 
 interface QuestionnaireFormProps {
@@ -152,6 +153,39 @@ export function QuestionnaireForm({
                         </label>
                       );
                     })}
+                  </div>
+                ) : q.type === "choice" ? (
+                  <div className="grid gap-2 sm:auto-cols-fr sm:grid-flow-col">
+                    {q.options.map((o, i) => (
+                      <label
+                        key={o.value}
+                        className={cn(
+                          "flex cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-2.5 transition-colors",
+                          "hover:bg-muted/50 has-checked:border-primary has-checked:bg-primary/5",
+                          "has-disabled:cursor-default has-disabled:hover:bg-transparent"
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name={`q.${q.key}`}
+                          value={o.value}
+                          checked={values[q.key] === o.value}
+                          onChange={() =>
+                            setValues((prev) => ({ ...prev, [q.key]: o.value }))
+                          }
+                          required={q.required}
+                          className="size-4 shrink-0 accent-primary"
+                        />
+                        <span
+                          className="size-3 shrink-0 rounded-full"
+                          style={{ background: choiceColor(o.color, i) }}
+                          aria-hidden
+                        />
+                        <span className="text-sm font-medium text-foreground">
+                          {o.label}
+                        </span>
+                      </label>
+                    ))}
                   </div>
                 ) : (
                   <Textarea
